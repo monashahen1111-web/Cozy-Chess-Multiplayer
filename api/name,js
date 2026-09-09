@@ -1,0 +1,82 @@
+// /api/name.js
+// Vercel serverless function (Node.js runtime).
+//
+// Uses Upstash Redis (installed via the Vercel Marketplace - see the setup steps
+// your assistant gave you in chat). This lets a client "claim" a display name so
+// nobody else can take it while they're playing. Claims expire automatically
+// (NAME_TTL_SECONDS) unless renewed, so a crashed tab doesn't permanently squat
+// a name. A stable per-browser clientId (generated client-side, not a PeerJS room
+// id) is the "owner" of a claim, so the same browser can re-claim its own name
+// across sessions/rooms.
+
+import { Redis } from '@upstash/redis';
+
+// Defensive: different install paths name these env vars slightly differently
+// (KV_REST_API_URL/TOKEN vs UPSTASH_REDIS_REST_URL/TOKEN). Accept either.
+const redis = new Redis({
+  url: process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN,
+});
+
+const NAME_TTL_SECONDS = 120; // client renews roughly every 45s while the tab is open
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  let body = req.body;
+  if (typeof body === 'string') {
+    try { body = JSON.parse(body); } catch { body = {}; }
+  }
+  const { action, name, clientId } = body || {};
+
+  if (!clientId || typeof clientId !== 'string') {
+    return res.status(400).json({ error: 'Missing clientId' });
+  }
+
+  if (action === 'claim') {
+    if (!name || typeof name !== 'string') {
+      return res.status(400).json({ error: 'Missing name' });
+    }
+    const trimmed = name.trim();
+    if (trimmed.length === 0 || trimmed.length > 15) {
+      return res.status(400).json({ error: 'Name must be 1-15 characters' });
+    }
+
+    const key = `name:${trimmed.toLowerCase()}`;
+    try {
+      const existing = await redis.get(key);
+      if (existing && existing.clientId !== clientId) {
+        return res.status(409).json({ error: 'Name already taken' });
+      }
+      // Either free, or already owned by this same clientId (renewal case).
+      await redis.set(key, { clientId }, { ex: NAME_TTL_SECONDS });
+      return res.status(200).json({ ok: true });
+    } catch (err) {
+      console.error('Redis error on claim:', err);
+      return res.status(500).json({ error: 'Name service unavailable' });
+    }
+  }
+
+  if (action === 'release') {
+    if (!name || typeof name !== 'string') {
+      return res.status(400).json({ error: 'Missing name' });
+    }
+    const key = `name:${name.trim().toLowerCase()}`;
+    try {
+      const existing = await redis.get(key);
+      // Only release if this client is actually the owner - prevents a stray
+      // release call from stealing/clearing someone else's active claim.
+      if (existing && existing.clientId === clientId) {
+        await redis.del(key);
+      }
+      return res.status(200).json({ ok: true });
+    } catch (err) {
+      console.error('Redis error on release:', err);
+      return res.status(500).json({ error: 'Name service unavailable' });
+    }
+  }
+
+  return res.status(400).json({ error: 'Unknown action' });
+}
