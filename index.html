@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>3D Horror Maze - Serverless P2P Multiplayer</title>
+    <style>
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; background-color: #000;
+            font-family: 'Courier New', Courier, monospace; user-select: none; touch-action: none;
+        }
+
+        #canvas-container { width: 100%; height: 100%; cursor: pointer; }
+
+        #crosshair {
+            position: absolute; top: 50%; left: 50%; width: 4px; height: 4px;
+            background-color: rgba(255, 255, 255, 0.4); border-radius: 50%;
+            transform: translate(-50%, -50%); pointer-events: none; z-index: 10;
+        }
+
+        /* Top Right Room Badge */
+        #room-badge {
+            position: absolute; top: 15px; right: 15px;
+            background: rgba(0, 0, 0, 0.85); border: 2px solid #550000;
+            border-radius: 6px; padding: 8px 14px; color: #ff3333;
+            font-weight: bold; font-size: 14px; letter-spacing: 1px;
+            display: none; align-items: center; gap: 8px; z-index: 200;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.8); pointer-events: auto;
+        }
+
+        #room-badge button {
+            background: #550000; color: #fff; border: 1px solid #880000;
+            padding: 4px 8px; margin: 0; font-size: 10px; cursor: pointer;
+            border-radius: 4px;
+        }
+        #room-badge button:hover { background: #880000; }
+
+        #player-count {
+            position: absolute; top: 15px; left: 15px;
+            background: rgba(0, 0, 0, 0.85); border: 2px solid #550000;
+            border-radius: 6px; padding: 8px 14px; color: #ff3333;
+            font-weight: bold; font-size: 13px; letter-spacing: 1px;
+            display: none; z-index: 200; box-shadow: 0 0 15px rgba(0, 0, 0, 0.8);
+        }
+
+        #btn-pause {
+            position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.85); border: 2px solid #550000;
+            border-radius: 6px; width: 40px; height: 36px; color: #ff3333;
+            font-size: 18px; display: none; align-items: center; justify-content: center;
+            cursor: pointer; z-index: 200; pointer-events: auto;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.8);
+        }
+        #btn-pause:hover { background: rgba(85, 0, 0, 0.85); }
+
+        #pause-menu {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            display: none; align-items: center; justify-content: center;
+            z-index: 300; pointer-events: auto;
+        }
+
+        .pause-box {
+            background: rgba(0, 0, 0, 0.95); border: 2px solid #550000;
+            border-radius: 8px; padding: 30px 40px; text-align: center;
+            box-shadow: 0 0 30px #000;
+        }
+
+        .pause-box h2 {
+            color: #ff3333; letter-spacing: 4px; margin-top: 0; text-shadow: 0 0 10px #ff0000;
+        }
+
+        .pause-box button {
+            display: block; width: 200px; margin: 10px auto;
+        }
+
+        #btn-leave { background: #330000; border-color: #880000; }
+        #btn-leave:hover { background: #660000; }
+
+        #ui {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; color: #8b0000; text-shadow: 0 0 10px #ff0000; z-index: 100;
+        }
+
+        #instructions {
+            background: rgba(0, 0, 0, 0.9); padding: 30px; border: 2px solid #550000;
+            border-radius: 8px; text-align: center; pointer-events: auto; box-shadow: 0 0 30px #000;
+            max-width: 90%;
+        }
+
+        h1 { margin-top: 0; letter-spacing: 4px; color: #ff3333; }
+        p { color: #bbb; line-height: 1.6; }
+        .key { color: #fff; background: #333; padding: 2px 6px; border-radius: 4px; border: 1px solid #555; }
+
+        #name-section { margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid #550000; }
+        #name-confirmed-text { color: #3adb5f; font-size: 13px; margin: 6px 0 0 0; display: none; }
+        #name-error { color: #ff5555; font-size: 13px; margin: 6px 0 0 0; display: none; }
+
+        input, button {
+            font-family: inherit; font-size: 16px; padding: 10px 14px; margin: 8px 5px;
+            border-radius: 4px; border: 1px solid #550000; outline: none; pointer-events: auto;
+        }
+
+        input { background: #111; color: #fff; text-align: center; width: 180px; }
+        input#room-input { text-transform: uppercase; }
+        button { background: #550000; color: #fff; cursor: pointer; font-weight: bold; }
+        button:hover { background: #880000; }
+        button:disabled { background: #333; color: #777; cursor: not-allowed; }
+        button:disabled:hover { background: #333; }
+
+        #mobile-controls {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; display: none; z-index: 50;
+        }
+
+        #joystick-container {
+            position: absolute; bottom: 30px; left: 30px; width: 110px; height: 110px;
+            background: rgba(255, 255, 255, 0.08); border: 2px solid rgba(255, 255, 255, 0.25);
+            border-radius: 50%; pointer-events: auto; touch-action: none;
+        }
+
+        #joystick-knob {
+            position: absolute; top: 35px; left: 35px; width: 40px; height: 40px;
+            background: rgba(255, 255, 255, 0.4); border-radius: 50%;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.3); pointer-events: none;
+        }
+
+        .touch-btn {
+            position: absolute; width: 64px; height: 64px;
+            background: rgba(0, 0, 0, 0.5); border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%; color: #fff; font-weight: bold; font-size: 11px;
+            display: flex; justify-content: center; align-items: center;
+            pointer-events: auto; touch-action: manipulation; box-shadow: 0 0 10px rgba(0,0,0,0.8);
+        }
+
+        .touch-btn:active { background: rgba(255, 255, 255, 0.3); }
+        #btn-jump { bottom: 100px; right: 30px; }
+        #btn-flash { bottom: 25px; right: 30px; }
+    </style>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+    <div id="crosshair"></div>
+
+    <div id="room-badge">
+        ROOM: <span id="current-room-code">------</span>
+        <button id="btn-copy-code">COPY</button>
+    </div>
+
+    <div id="player-count">PLAYERS: 1</div>
+    <div id="btn-pause">&#9776;</div>
+
+    <div id="pause-menu">
+        <div class="pause-box">
+            <h2>PAUSED</h2>
+            <button id="btn-resume">RESUME</button>
+            <button id="btn-leave">LEAVE ROOM</button>
+        </div>
+    </div>
+
+    <div id="ui">
+        <div id="instructions">
+            <h1>THE LABYRINTH</h1>
+            <p id="status-text">Enter a name to begin</p>
+
+            <div id="name-section">
+                <input type="text" id="name-input" placeholder="YOUR NAME" maxlength="15" autocomplete="off" spellcheck="false"><br>
+                <button id="btn-confirm-name">CONFIRM</button>
+                <p id="name-confirmed-text"></p>
+                <p id="name-error"></p>
+            </div>
+
+            <div id="lobby-menu">
+                <button id="btn-host" disabled>HOST GAME</button><br>
+                <input type="text" id="room-input" placeholder="ROOM CODE" maxlength="6" autocomplete="off" spellcheck="false"><br>
+                <button id="btn-join" disabled>JOIN GAME</button>
+            </div>
+
+            <p style="margin-top: 15px; font-size: 12px;">
+                <span class="key">WASD / Joystick</span> - Move | <span class="key">Mouse / Touch</span> - Look<br>
+                <span class="key">SPACE / JUMP</span> - Jump | <span class="key">F / FLASH</span> - Light<br>
+                <span class="key">ESC</span> - Pause / Resume
+            </p>
+        </div>
+    </div>
+
+    <div id="mobile-controls">
+        <div id="joystick-container">
+            <div id="joystick-knob"></div>
+        </div>
+        <div id="btn-jump" class="touch-btn">JUMP</div>
+        <div id="btn-flash" class="touch-btn">FLASH</div>
+    </div>
+
+    <script>
+        const GRID_SIZE = 17, CELL_SIZE = 6, WALL_HEIGHT = 5.5, PLAYER_RADIUS = 0.5;
+        const NAME_STORAGE_KEY = 'horrorMazePlayerName';
+        const CLIENT_ID_STORAGE_KEY = 'horrorMazeClientId';
+        const NAME_RENEW_INTERVAL_MS = 45000; // must be well under the server's 120s TTL
+        let peer = null, connections = {}, peerNames = {};
+        let myPeerId = "", isHost = false, activeRoomCode = "", gameStarted = false;
+        let playerName = "";
+        let clientId = getOrCreateClientId();
+        let nameRenewTimer = null;
+
+        function getOrCreateClientId() {
+            let id = localStorage.getItem(CLIENT_ID_STORAGE_KEY);
+            if (id) return id;
+            id = (crypto.randomUUID) ? crypto.randomUUID() :
+                'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+                    const r = Math.random() * 16 | 0;
+                    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+                });
+            localStorage.setItem(CLIENT_ID_STORAGE_KEY, id);
+            return id;
+        }
+
+        let scene, camera, cameraYawGroup, cameraPitchGroup, renderer, flashlight, flashlightFill, handRig;
+        let otherPlayers = {};
+        let controlsLocked = false, isPaused = false;
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+        let canJump = false, velocity = new THREE.Vector3(), prevTime = performance.now();
+        let yaw = 0, pitch = 0, maze = [], wallBoxes = [], audioCtx, stepTimer = 0, walkCycle = 0;
+
+        let isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+        let joystickInput = { x: 0, y: 0 }, cameraTouchId = null, lastTouchX = 0, lastTouchY = 0;
+
+        // Networking rate control
+        const BROADCAST_INTERVAL = 1 / 20; // send state 20x/sec instead of every render frame
+        let broadcastAccumulator = 0;
+
+        function generateRoomCode() {
+            return Math.random().toString(36).substring(2, 8).toUpperCase();
+        }
+
+        function displayRoomCodeBadge(code) {
+            activeRoomCode = code;
+            document.getElementById('current-room-code').innerText = code;
+            document.getElementById('room-badge').style.display = 'flex';
+        }
+
+        function updatePlayerCountBadge() {
+            const badge = document.getElementById('player-count');
+            badge.innerText = `PLAYERS: ${Object.keys(otherPlayers).length + 1}`;
+            badge.style.display = gameStarted ? 'block' : 'none';
+        }
+
+        function setLobbyBusy(busy, message) {
+            const nameConfirmed = !!playerName;
+            document.getElementById('btn-host').disabled = busy || !nameConfirmed;
+            document.getElementById('btn-join').disabled = busy || !nameConfirmed;
+            if (message) document.getElementById('status-text').innerText = message;
+        }
+
+        // ---------- Name entry ----------
+        function initNameUI() {
+            const nameInput = document.getElementById('name-input');
+            const confirmBtn = document.getElementById('btn-confirm-name');
+
+            const saved = localStorage.getItem(NAME_STORAGE_KEY);
+            if (saved) {
+                nameInput.value = saved;
+                // Re-claim it under our stored clientId so a returning player keeps their
+                // name without retyping it - if someone else grabbed it while we were away,
+                // this will surface "Name already taken" just like a fresh attempt would.
+                attemptClaimName(saved);
+            }
+
+            confirmBtn.addEventListener('click', () => {
+                const val = nameInput.value.trim().slice(0, 15);
+                if (!val) { showNameError("Please enter a name."); return; }
+                attemptClaimName(val);
+            });
+
+            nameInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') confirmBtn.click();
+            });
+        }
+
+        function showNameError(message) {
+            const errorText = document.getElementById('name-error');
+            errorText.innerText = message;
+            errorText.style.display = 'block';
+        }
+
+        function clearNameError() {
+            document.getElementById('name-error').style.display = 'none';
+        }
+
+        async function attemptClaimName(name) {
+            clearNameError();
+            const confirmBtn = document.getElementById('btn-confirm-name');
+            confirmBtn.disabled = true;
+            confirmBtn.innerText = "CHECKING...";
+
+            try {
+                const res = await fetch('/api/name', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'claim', name, clientId })
+                });
+
+                if (res.status === 409) {
+                    showNameError("Name already taken.");
+                    confirmBtn.disabled = false;
+                    confirmBtn.innerText = "CONFIRM";
+                    return;
+                }
+                if (!res.ok) {
+                    // Name service errored (e.g. KV not set up yet) - don't hard-block play,
+                    // just proceed without server-side uniqueness for this session.
+                    console.warn('Name service error, proceeding without uniqueness check.');
+                }
+            } catch (err) {
+                // Likely running locally without the /api route deployed - degrade gracefully.
+                console.warn('Name service unreachable, proceeding without uniqueness check.');
+            }
+
+            confirmBtn.disabled = false;
+            confirmBtn.innerText = "CONFIRM";
+            confirmName(name);
+            startNameRenewal(name);
+        }
+
+        function confirmName(name) {
+            playerName = name;
+            localStorage.setItem(NAME_STORAGE_KEY, name);
+            const confirmedText = document.getElementById('name-confirmed-text');
+            confirmedText.innerText = `Playing as: ${name}`;
+            confirmedText.style.display = 'block';
+            document.getElementById('status-text').innerText = "Choose Host or Join to start";
+            setLobbyBusy(false);
+        }
+
+        function startNameRenewal(name) {
+            if (nameRenewTimer) clearInterval(nameRenewTimer);
+            nameRenewTimer = setInterval(() => {
+                fetch('/api/name', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'claim', name, clientId })
+                }).catch(() => { /* best-effort; TTL just lapses if this keeps failing */ });
+            }, NAME_RENEW_INTERVAL_MS);
+        }
+
+        function releaseNameBeacon() {
+            if (!playerName) return;
+            const payload = JSON.stringify({ action: 'release', name: playerName, clientId });
+            if (navigator.sendBeacon) {
+                navigator.sendBeacon('/api/name', new Blob([payload], { type: 'application/json' }));
+            } else {
+                fetch('/api/name', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true }).catch(() => {});
+            }
+        }
+
+        // ---------- P2P setup ----------
+        function initP2P(roomCode, hosting) {
+            isHost = hosting;
+            const fullId = "horror-maze-" + roomCode;
+            setLobbyBusy(true, hosting ? "Creating room..." : "Connecting to Host...");
+
+            peer = hosting ? new Peer(fullId) : new Peer();
+
+            peer.on('open', (id) => {
+                myPeerId = id;
+                displayRoomCodeBadge(roomCode);
+                document.getElementById('status-text').innerText = hosting ?
+                    `ROOM CODE: ${roomCode}` : "Connecting to Host...";
+
+                if (!hosting) {
+                    const conn = peer.connect(fullId, { reliable: true });
+                    setupConnection(conn);
+                } else {
+                    startGame();
+                }
+            });
+
+            peer.on('connection', (conn) => {
+                setupConnection(conn);
+            });
+
+            peer.on('disconnected', () => {
+                // Lost connection to the signaling server (not to other players) - try to recover
+                if (peer && !peer.destroyed) {
+                    document.getElementById('status-text').innerText = "Reconnecting...";
+                    peer.reconnect();
+                }
+            });
+
+            peer.on('error', (err) => {
+                setLobbyBusy(false);
+                let msg;
+                switch (err.type) {
+                    case 'peer-unavailable':
+                        msg = "Room not found. Check the code and try again.";
+                        break;
+                    case 'unavailable-id':
+                        msg = "That room code is already in use. Try hosting again.";
+                        break;
+                    case 'network':
+                        msg = "Network error - check your connection.";
+                        break;
+                    default:
+                        msg = "Connection error: " + err.type;
+                }
+                document.getElementById('status-text').innerText = msg;
+                document.getElementById('room-badge').style.display = 'none';
+            });
+        }
+
+        function setupConnection(conn) {
+            conn.on('open', () => {
+                connections[conn.peer] = conn;
+                setLobbyBusy(false);
+                if (!isHost) startGame();
+                conn.send({ type: 'hello', name: playerName });
+                updatePlayerCountBadge();
+            });
+
+            conn.on('data', (data) => {
+                if (data.type === 'update') {
+                    if (!otherPlayers[conn.peer]) {
+                        otherPlayers[conn.peer] = createRemotePlayerMesh(conn.peer, peerNames[conn.peer]);
+                        updatePlayerCountBadge();
+                    }
+                    updateRemotePlayerMesh(otherPlayers[conn.peer], data);
+
+                    if (isHost) {
+                        broadcast({ type: 'updateFromHost', id: conn.peer, data: data }, conn.peer);
+                    }
+                } else if (data.type === 'updateFromHost') {
+                    if (!otherPlayers[data.id]) {
+                        otherPlayers[data.id] = createRemotePlayerMesh(data.id, peerNames[data.id]);
+                        updatePlayerCountBadge();
+                    }
+                    updateRemotePlayerMesh(otherPlayers[data.id], data.data);
+                } else if (data.type === 'hello') {
+                    peerNames[conn.peer] = data.name;
+                    if (!otherPlayers[conn.peer]) {
+                        otherPlayers[conn.peer] = createRemotePlayerMesh(conn.peer, data.name);
+                        updatePlayerCountBadge();
+                    } else {
+                        setPlayerName(otherPlayers[conn.peer], data.name);
+                    }
+                    if (isHost) {
+                        // Tell the newcomer about everyone else already in the room
+                        Object.entries(peerNames).forEach(([id, nm]) => {
+                            if (id !== conn.peer) conn.send({ type: 'helloFromHost', id: id, name: nm });
+                        });
+                        // Tell everyone else about the newcomer
+                        broadcast({ type: 'helloFromHost', id: conn.peer, name: data.name }, conn.peer);
+                    }
+                } else if (data.type === 'helloFromHost') {
+                    peerNames[data.id] = data.name;
+                    if (!otherPlayers[data.id]) {
+                        otherPlayers[data.id] = createRemotePlayerMesh(data.id, data.name);
+                        updatePlayerCountBadge();
+                    } else {
+                        setPlayerName(otherPlayers[data.id], data.name);
+                    }
+                }
+            });
+
+            conn.on('close', () => removeRemotePlayer(conn.peer));
+            conn.on('error', () => removeRemotePlayer(conn.peer));
+        }
+
+        function removeRemotePlayer(peerId) {
+            if (otherPlayers[peerId]) {
+                const pg = otherPlayers[peerId];
+                if (pg.userData.nameSprite) {
+                    pg.userData.nameSprite.material.map.dispose();
+                    pg.userData.nameSprite.material.dispose();
+                }
+                scene.remove(pg);
+                delete otherPlayers[peerId];
+            }
+            delete connections[peerId];
+            delete peerNames[peerId];
+            updatePlayerCountBadge();
+        }
+
+        // Deterministic color per peer id so multiple remote players are visually distinct
+        function colorForPeerId(id) {
+            let hash = 0;
+            for (let i = 0; i < id.length; i++) {
+                hash = (hash * 31 + id.charCodeAt(i)) & 0xffffffff;
+            }
+            const hue = Math.abs(hash) % 360;
+            const color = new THREE.Color();
+            color.setHSL(hue / 360, 0.55, 0.4);
+            return color;
+        }
+
+        function updateRemotePlayerMesh(playerGroup, data) {
+            // Store network-received values as interpolation targets rather than snapping directly.
+            // This smooths out jitter from variable P2P latency / packet timing.
+            const ud = playerGroup.userData;
+            ud.targetPosition.set(data.x, data.y - 1.6, data.z);
+            ud.targetYaw = data.yaw;
+            ud.targetPitch = data.pitch;
+            ud.targetFlashlight = data.flashlight;
+        }
+
+        function interpolateRemotePlayers(delta) {
+            // Higher factor = snappier but less smooth; tuned for a 20Hz send rate.
+            const posLerp = Math.min(1, delta * 12);
+            const rotLerp = Math.min(1, delta * 12);
+
+            Object.values(otherPlayers).forEach((playerGroup) => {
+                const ud = playerGroup.userData;
+                if (!ud.targetPosition) return;
+
+                playerGroup.position.lerp(ud.targetPosition, posLerp);
+
+                // Shortest-path yaw interpolation to avoid spinning the long way around
+                let yawDiff = ud.targetYaw - playerGroup.rotation.y;
+                yawDiff = ((yawDiff + Math.PI) % (Math.PI * 2)) - Math.PI;
+                playerGroup.rotation.y += yawDiff * rotLerp;
+
+                if (ud.headAndHandGroup) {
+                    ud.headAndHandGroup.rotation.x +=
+                        (ud.targetPitch - ud.headAndHandGroup.rotation.x) * rotLerp;
+                }
+
+                if (ud.spotLight) ud.spotLight.visible = ud.targetFlashlight;
+                if (ud.handRig) ud.handRig.visible = ud.targetFlashlight;
+            });
+        }
+
+        function broadcast(data, excludePeerId = null) {
+            Object.keys(connections).forEach(id => {
+                if (id !== excludePeerId && connections[id].open) {
+                    connections[id].send(data);
+                }
+            });
+        }
+
+        // Chromium enforces a short cooldown (roughly 1s) on re-requesting pointer lock
+        // immediately after the user exits it via the Escape key, to guarantee Escape always
+        // works as an actual "give me my cursor back" escape hatch. A request made during that
+        // window is silently rejected. Catching the rejection and retrying once after the
+        // cooldown - while we still have "transient activation" from the original click/keydown -
+        // lets Resume work without the user having to click a second time.
+        function requestPointerLockWithRetry(retriesLeft) {
+            if (retriesLeft === undefined) retriesLeft = 1;
+            const lockResult = document.body.requestPointerLock();
+            if (lockResult && typeof lockResult.catch === 'function') {
+                lockResult.catch(() => {
+                    if (retriesLeft > 0) {
+                        setTimeout(() => requestPointerLockWithRetry(retriesLeft - 1), 1200);
+                    }
+                });
+            }
+        }
+
+        function startGame() {
+            gameStarted = true;
+            document.getElementById('instructions').style.display = 'none';
+            document.getElementById('btn-pause').style.display = 'flex';
+            if (!isTouchDevice) requestPointerLockWithRetry();
+            controlsLocked = true;
+            initAudio();
+            updatePlayerCountBadge();
+        }
+
+        function generateMaze(cols, rows) {
+            let map = Array(rows).fill().map(() => Array(cols).fill(1));
+            function carve(x, y) {
+                const dirs = [[0, -2], [0, 2], [-2, 0], [2, 0]].sort(() => 0.5 - Math.random());
+                map[y][x] = 0;
+                for (let [dx, dy] of dirs) {
+                    let nx = x + dx, ny = y + dy;
+                    if (nx > 0 && nx < cols - 1 && ny > 0 && ny < rows - 1 && map[ny][nx] === 1) {
+                        map[y + dy / 2][x + dx / 2] = 0; carve(nx, ny);
+                    }
+                }
+            }
+            carve(1, 1); map[1][1] = 0; return map;
+        }
+
+        function createWallTexture() {
+            const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 512;
+            const ctx = canvas.getContext('2d'); ctx.fillStyle = '#2a2a35'; ctx.fillRect(0, 0, 512, 512);
+            for (let i = 0; i < 30000; i++) {
+                let x = Math.random() * 512, y = Math.random() * 512, val = 40 + Math.random() * 40;
+                ctx.fillStyle = `rgb(${val},${val},${val+10})`; ctx.fillRect(x, y, 2, 2);
+            }
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = THREE.RepeatWrapping; texture.wrapT = THREE.RepeatWrapping; return texture;
+        }
+
+        function createFloorTexture() {
+            const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 512;
+            const ctx = canvas.getContext('2d'); ctx.fillStyle = '#22222a'; ctx.fillRect(0, 0, 512, 512);
+            ctx.strokeStyle = '#444455'; ctx.lineWidth = 4;
+            for(let i=0; i<=512; i+=64) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 512); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(512, i); ctx.stroke();
+            }
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = THREE.RepeatWrapping; texture.wrapT = THREE.RepeatWrapping;
+            texture.repeat.set(GRID_SIZE, GRID_SIZE); return texture;
+        }
+
+        function createSmileyFaceTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512; canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            // Skin color background
+            ctx.fillStyle = '#c48d71';
+            ctx.fillRect(0, 0, 512, 256);
+
+            // Front face region (centered around x = 384)
+            const centerX = 384, centerY = 128;
+
+            // Eyes
+            ctx.fillStyle = '#111';
+            ctx.beginPath(); ctx.arc(centerX - 45, centerY - 25, 14, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(centerX + 45, centerY - 25, 14, 0, Math.PI * 2); ctx.fill();
+
+            // Eye highlights
+            ctx.fillStyle = '#fff';
+            ctx.beginPath(); ctx.arc(centerX - 48, centerY - 28, 4, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(centerX + 42, centerY - 28, 4, 0, Math.PI * 2); ctx.fill();
+
+            // Smile
+            ctx.strokeStyle = '#111';
+            ctx.lineWidth = 10;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY + 10, 50, 0.15 * Math.PI, 0.85 * Math.PI, false);
+            ctx.stroke();
+
+            const texture = new THREE.CanvasTexture(canvas);
+            return texture;
+        }
+
+        function createNameTagSprite(name) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256; canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            ctx.font = 'bold 34px "Courier New", monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.lineWidth = 6;
+            ctx.strokeStyle = 'rgba(0,0,0,0.9)';
+            ctx.strokeText(name, 128, 32);
+            ctx.fillStyle = '#ff5555';
+            ctx.fillText(name, 128, 32);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true });
+            const sprite = new THREE.Sprite(material);
+            sprite.scale.set(1.3, 0.32, 1);
+            sprite.renderOrder = 999;
+            return sprite;
+        }
+
+        function setPlayerName(playerGroup, name) {
+            if (playerGroup.userData.playerName === name) return;
+            playerGroup.userData.playerName = name;
+            const old = playerGroup.userData.nameSprite;
+            const fresh = createNameTagSprite(name);
+            fresh.position.copy(old.position);
+            playerGroup.remove(old);
+            old.material.map.dispose();
+            old.material.dispose();
+            playerGroup.add(fresh);
+            playerGroup.userData.nameSprite = fresh;
+        }
+
+        function createRemotePlayerMesh(peerId, name) {
+            const displayName = name || '???';
+            const playerGroup = new THREE.Group();
+
+            // Body Mesh - colored per peer id so multiple remote players are distinguishable
+            const bodyColor = peerId ? colorForPeerId(peerId) : new THREE.Color(0x882222);
+            const body = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.4, 0.4, 1.4, 12),
+                new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.7 })
+            );
+            body.position.y = 0.7;
+            playerGroup.add(body);
+
+            // Group attached at head level to pitch with camera angle
+            const headAndHandGroup = new THREE.Group();
+            headAndHandGroup.position.set(0, 1.6, 0);
+            playerGroup.add(headAndHandGroup);
+
+            // Head Mesh with Smiley Face.
+            // No extra Y rotation here: the face art sits at u~0.75 on the sphere's default UV
+            // mapping, which Three.js already projects toward -z - this game's "forward" - so
+            // the face naturally looks the way the player is heading once playerGroup.rotation.y
+            // is set to their yaw.
+            const headTexture = createSmileyFaceTexture();
+            const head = new THREE.Mesh(
+                new THREE.SphereGeometry(0.3, 16, 16),
+                new THREE.MeshStandardMaterial({ map: headTexture, roughness: 0.5 })
+            );
+            headAndHandGroup.add(head);
+
+            // Remote Flashlight SpotLight (moved slightly forward: z = -0.4)
+            const spotLight = new THREE.SpotLight(0xfffaed, 6.0, 40, Math.PI / 4.5, 0.4, 1);
+            spotLight.position.set(0.2, -0.1, -0.4);
+            const lightTarget = new THREE.Object3D();
+            lightTarget.position.set(0.2, -0.1, -5);
+            headAndHandGroup.add(lightTarget);
+            spotLight.target = lightTarget;
+            headAndHandGroup.add(spotLight);
+
+            // Remote Hand & Flashlight Mesh
+            const handMesh = createHandAndFlashlightModel();
+            headAndHandGroup.add(handMesh);
+
+            // Name tag - a Sprite always faces the camera automatically, so it stays readable
+            // from any angle without extra billboard logic.
+            const nameSprite = createNameTagSprite(displayName);
+            nameSprite.position.set(0, 2.05, 0);
+            playerGroup.add(nameSprite);
+
+            playerGroup.userData = {
+                spotLight: spotLight,
+                handRig: handMesh,
+                headAndHandGroup: headAndHandGroup,
+                nameSprite: nameSprite,
+                playerName: displayName,
+                targetPosition: playerGroup.position.clone(),
+                targetYaw: 0,
+                targetPitch: 0,
+                targetFlashlight: false
+            };
+
+            scene.add(playerGroup);
+            return playerGroup;
+        }
+
+        function createHandAndFlashlightModel() {
+            const rig = new THREE.Group();
+            const skinMat = new THREE.MeshStandardMaterial({ color: 0xc48d71, roughness: 0.6 });
+            const sleeveMat = new THREE.MeshStandardMaterial({ color: 0x111622, roughness: 0.8 });
+
+            const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.35, 12), sleeveMat);
+            sleeve.rotation.x = Math.PI / 2; sleeve.position.set(0.05, -0.05, 0.1); rig.add(sleeve);
+
+            const hand = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.1), skinMat);
+            hand.position.set(0.05, -0.05, -0.08); rig.add(hand);
+
+            const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.028, 0.22, 16), new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.3, metalness: 0.8 }));
+            handle.rotation.x = Math.PI / 2; handle.position.set(0.05, -0.04, -0.12); rig.add(handle);
+
+            const head = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.03, 0.07, 16), new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.2, metalness: 0.9 }));
+            head.rotation.x = Math.PI / 2; head.position.set(0.05, -0.04, -0.24); rig.add(head);
+
+            // Nudged position slightly forward
+            rig.position.set(0.2, -0.18, -0.4);
+            return rig;
+        }
+
+        function initAudio() {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = audioCtx.createOscillator(), filter = audioCtx.createBiquadFilter(), droneGain = audioCtx.createGain();
+            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(40, audioCtx.currentTime);
+            filter.type = 'lowpass'; filter.frequency.setValueAtTime(140, audioCtx.currentTime);
+            droneGain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+            osc.connect(filter); filter.connect(droneGain); droneGain.connect(audioCtx.destination); osc.start();
+        }
+
+        function playFootstepSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+            osc.type = 'triangle'; osc.frequency.setValueAtTime(110 + Math.random() * 40, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime + 0.12);
+            gain.gain.setValueAtTime(0.35, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
+            osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.12);
+        }
+
+        function playJumpSound() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+            osc.type = 'sine'; osc.frequency.setValueAtTime(120, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(380, audioCtx.currentTime + 0.3);
+            gain.gain.setValueAtTime(0.5, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+            osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+        }
+
+        function playClickSound() {
+            if (!audioCtx) return;
+            const click = audioCtx.createOscillator(), gain = audioCtx.createGain();
+            click.type = 'square'; click.frequency.setValueAtTime(900, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.06);
+            click.connect(gain); gain.connect(audioCtx.destination); click.start(); click.stop(audioCtx.currentTime + 0.06);
+        }
+
+        function init() {
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+            scene = new THREE.Scene(); scene.background = new THREE.Color(0x0d0d14);
+            scene.fog = new THREE.FogExp2(0x0d0d14, 0.035);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+            // Camera Rig Hierarchy
+            cameraYawGroup = new THREE.Group();
+            cameraPitchGroup = new THREE.Group();
+
+            cameraYawGroup.position.set(CELL_SIZE * 1.5, 1.6, CELL_SIZE * 1.5);
+            cameraYawGroup.add(cameraPitchGroup);
+            cameraPitchGroup.add(camera);
+            scene.add(cameraYawGroup);
+
+            scene.add(new THREE.AmbientLight(0x7788aa, 1.2));
+
+            flashlight = new THREE.SpotLight(0xfffaed, 6.0, 60, Math.PI / 4.5, 0.4, 1);
+            flashlightFill = new THREE.SpotLight(0xfff5dd, 1.5, 18, Math.PI / 2, 0.9, 1);
+
+            const lightTarget = new THREE.Object3D();
+            lightTarget.position.set(0, 0, -5);
+            cameraPitchGroup.add(lightTarget);
+
+            flashlight.target = lightTarget;
+            flashlightFill.target = lightTarget;
+
+            // Nudged flashlight position forward (z = -0.4)
+            flashlight.position.set(0.2, -0.1, -0.4);
+            flashlightFill.position.set(0.2, -0.1, -0.4);
+
+            cameraPitchGroup.add(flashlight);
+            cameraPitchGroup.add(flashlightFill);
+
+            handRig = createHandAndFlashlightModel();
+            cameraPitchGroup.add(handRig);
+
+            maze = generateMaze(GRID_SIZE, GRID_SIZE);
+            const wallMaterial = new THREE.MeshStandardMaterial({ map: createWallTexture(), roughness: 0.8, emissive: new THREE.Color(0x181825), emissiveIntensity: 0.8 });
+            const floorMaterial = new THREE.MeshStandardMaterial({ map: createFloorTexture(), roughness: 0.8, emissive: new THREE.Color(0x151522), emissiveIntensity: 0.8 });
+            const wallGeo = new THREE.BoxGeometry(CELL_SIZE, WALL_HEIGHT, CELL_SIZE);
+
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    if (maze[r][c] === 1) {
+                        const wall = new THREE.Mesh(wallGeo, wallMaterial);
+                        wall.position.set(c * CELL_SIZE + CELL_SIZE / 2, WALL_HEIGHT / 2, r * CELL_SIZE + CELL_SIZE / 2);
+                        scene.add(wall); wallBoxes.push(new THREE.Box3().setFromObject(wall));
+                    }
+                }
+            }
+
+            const totalSize = GRID_SIZE * CELL_SIZE;
+            const floor = new THREE.Mesh(new THREE.PlaneGeometry(totalSize, totalSize), floorMaterial);
+            floor.rotation.x = -Math.PI / 2; floor.position.set(totalSize / 2, 0, totalSize / 2);
+            scene.add(floor);
+
+            initNameUI();
+            setupUI(); setupControls(); setupMobileControls(); setupPauseMenu();
+            window.addEventListener('resize', onWindowResize);
+            window.addEventListener('beforeunload', () => {
+                if (peer && !peer.destroyed) peer.destroy();
+                releaseNameBeacon();
+            });
+        }
+
+        function setupUI() {
+            const roomInput = document.getElementById('room-input');
+
+            document.getElementById('btn-host').addEventListener('click', () => {
+                roomInput.blur();
+                const code = generateRoomCode();
+                initP2P(code, true);
+            });
+
+            document.getElementById('btn-join').addEventListener('click', () => {
+                roomInput.blur();
+                const code = roomInput.value.trim().toUpperCase();
+                if (code.length === 6) {
+                    initP2P(code, false);
+                } else {
+                    alert("Please enter a valid 6-character room code.");
+                }
+            });
+
+            // Allow pressing Enter in the room code field to join
+            roomInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') document.getElementById('btn-join').click();
+            });
+
+            document.getElementById('btn-copy-code').addEventListener('click', () => {
+                if (activeRoomCode) {
+                    navigator.clipboard.writeText(activeRoomCode);
+                    const btn = document.getElementById('btn-copy-code');
+                    btn.innerText = "COPIED!";
+                    setTimeout(() => { btn.innerText = "COPY"; }, 2000);
+                }
+            });
+
+            // Re-acquire Pointer Lock on clicking the canvas
+            document.getElementById('canvas-container').addEventListener('click', () => {
+                if (gameStarted && !isTouchDevice && !controlsLocked && !isPaused) {
+                    document.body.requestPointerLock();
+                }
+            });
+        }
+
+        // ---------- Pause menu ----------
+        function setupPauseMenu() {
+            document.getElementById('btn-pause').addEventListener('click', () => {
+                if (isPaused) resumeGame(); else pauseGame();
+            });
+            document.getElementById('btn-resume').addEventListener('click', resumeGame);
+            document.getElementById('btn-leave').addEventListener('click', () => {
+                if (peer && !peer.destroyed) peer.destroy();
+                if (nameRenewTimer) clearInterval(nameRenewTimer);
+                releaseNameBeacon();
+                location.reload();
+            });
+        }
+
+        function pauseGame() {
+            if (!gameStarted || isPaused) return;
+            isPaused = true;
+            document.getElementById('pause-menu').style.display = 'flex';
+            if (!isTouchDevice && document.pointerLockElement) {
+                document.exitPointerLock();
+            } else {
+                controlsLocked = false;
+            }
+        }
+
+        function resumeGame() {
+            if (!isPaused) return;
+            isPaused = false;
+            document.getElementById('pause-menu').style.display = 'none';
+            if (!isTouchDevice) {
+                requestPointerLockWithRetry();
+            } else {
+                controlsLocked = true;
+            }
+        }
+
+        function resolveCollisions(pos) {
+            const playerMin = new THREE.Vector3(pos.x - PLAYER_RADIUS, pos.y - 1.5, pos.z - PLAYER_RADIUS);
+            const playerMax = new THREE.Vector3(pos.x + PLAYER_RADIUS, pos.y + 0.3, pos.z + PLAYER_RADIUS);
+            const playerBox = new THREE.Box3(playerMin, playerMax);
+
+            for (let i = 0; i < wallBoxes.length; i++) {
+                const box = wallBoxes[i];
+                if (playerBox.intersectsBox(box)) {
+                    const minX = Math.min(playerBox.max.x - box.min.x, box.max.x - playerBox.min.x);
+                    const minZ = Math.min(playerBox.max.z - box.min.z, box.max.z - playerBox.min.z);
+                    if (minX < minZ) {
+                        pos.x += (playerBox.max.x - box.min.x < box.max.x - playerBox.min.x) ? -minX : minX;
+                    } else {
+                        pos.z += (playerBox.max.z - box.min.z < box.max.z - playerBox.min.z) ? -minZ : minZ;
+                    }
+                    playerBox.min.set(pos.x - PLAYER_RADIUS, pos.y - 1.5, pos.z - PLAYER_RADIUS);
+                    playerBox.max.set(pos.x + PLAYER_RADIUS, pos.y + 0.3, pos.z + PLAYER_RADIUS);
+                }
+            }
+        }
+
+        function toggleFlashlight() {
+            playClickSound();
+            const state = !flashlight.visible;
+            flashlight.visible = state; flashlightFill.visible = state; handRig.visible = state;
+        }
+
+        function setupControls() {
+            document.addEventListener('pointerlockchange', () => {
+                if (document.pointerLockElement === document.body) {
+                    controlsLocked = true;
+                    isPaused = false;
+                    document.getElementById('pause-menu').style.display = 'none';
+                } else if (gameStarted && !isTouchDevice) {
+                    controlsLocked = false;
+                    isPaused = true;
+                    document.getElementById('pause-menu').style.display = 'flex';
+                }
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!controlsLocked || isTouchDevice) return;
+
+                const mx = e.movementX || 0;
+                const my = e.movementY || 0;
+
+                if (Math.abs(mx) > 150 || Math.abs(my) > 150) return;
+
+                yaw -= mx * 0.002;
+                pitch -= my * 0.002;
+                pitch = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, pitch));
+
+                cameraYawGroup.rotation.y = yaw;
+                cameraPitchGroup.rotation.x = pitch;
+            }, { passive: true });
+
+            // Escape is handled separately from the movement-key listener below because that
+            // listener bails out early when controls aren't locked - exactly the state we're in
+            // once paused, which is when we need Escape to resume.
+            document.addEventListener('keydown', (e) => {
+                if (e.code !== 'Escape' || !gameStarted) return;
+                if (isPaused) resumeGame();
+                // If not yet paused, the browser's own Escape handling exits pointer lock on its
+                // own, which fires 'pointerlockchange' above and opens the pause menu for us.
+            });
+
+            document.addEventListener('keydown', (e) => {
+                if (!controlsLocked) return;
+                switch (e.code) {
+                    case 'KeyW': moveForward = true; break;
+                    case 'KeyS': moveBackward = true; break;
+                    case 'KeyA': moveLeft = true; break;
+                    case 'KeyD': moveRight = true; break;
+                    case 'Space': if (canJump) { velocity.y += 18.0; canJump = false; playJumpSound(); } break;
+                    case 'KeyF': if (!e.repeat) toggleFlashlight(); break;
+                }
+            });
+
+            document.addEventListener('keyup', (e) => {
+                switch (e.code) {
+                    case 'KeyW': moveForward = false; break;
+                    case 'KeyS': moveBackward = false; break;
+                    case 'KeyA': moveLeft = false; break;
+                    case 'KeyD': moveRight = false; break;
+                }
+            });
+        }
+
+        function setupMobileControls() {
+            const mobileOverlay = document.getElementById('mobile-controls');
+            if (isTouchDevice) mobileOverlay.style.display = 'block';
+
+            const container = document.getElementById('joystick-container');
+            const knob = document.getElementById('joystick-knob');
+            let joystickTouchId = null;
+
+            container.addEventListener('touchstart', (e) => {
+                e.preventDefault(); joystickTouchId = e.changedTouches[0].identifier;
+            }, { passive: false });
+
+            window.addEventListener('touchmove', (e) => {
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    const touch = e.changedTouches[i];
+                    if (touch.identifier === joystickTouchId) {
+                        const rect = container.getBoundingClientRect();
+                        const dx = touch.clientX - (rect.left + rect.width / 2);
+                        const dy = touch.clientY - (rect.top + rect.height / 2);
+                        const dist = Math.min(Math.hypot(dx, dy), 40);
+                        const angle = Math.atan2(dy, dx);
+                        const moveX = Math.cos(angle) * dist, moveY = Math.sin(angle) * dist;
+
+                        knob.style.transform = `translate(${moveX}px, ${moveY}px)`;
+                        joystickInput.x = moveX / 40; joystickInput.y = moveY / 40;
+                    } else if (touch.identifier === cameraTouchId) {
+                        const dx = (touch.clientX - lastTouchX);
+                        const dy = (touch.clientY - lastTouchY);
+
+                        if (Math.abs(dx) < 150 && Math.abs(dy) < 150) {
+                            yaw -= dx * 0.005;
+                            pitch -= dy * 0.005;
+                            pitch = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, pitch));
+
+                            cameraYawGroup.rotation.y = yaw;
+                            cameraPitchGroup.rotation.x = pitch;
+                        }
+
+                        lastTouchX = touch.clientX; lastTouchY = touch.clientY;
+                    }
+                }
+            }, { passive: true });
+
+            window.addEventListener('touchend', (e) => {
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    const touch = e.changedTouches[i];
+                    if (touch.identifier === joystickTouchId) {
+                        joystickTouchId = null; knob.style.transform = 'translate(0px, 0px)'; joystickInput = { x: 0, y: 0 };
+                    } else if (touch.identifier === cameraTouchId) cameraTouchId = null;
+                }
+            });
+
+            window.addEventListener('touchstart', (e) => {
+                if (!controlsLocked) return;
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    const touch = e.changedTouches[i];
+                    if (touch.clientX > window.innerWidth / 2 && cameraTouchId === null) {
+                        cameraTouchId = touch.identifier; lastTouchX = touch.clientX; lastTouchY = touch.clientY;
+                    }
+                }
+            }, { passive: true });
+
+            document.getElementById('btn-jump').addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if (canJump) { velocity.y += 18.0; canJump = false; playJumpSound(); }
+            }, { passive: false });
+
+            document.getElementById('btn-flash').addEventListener('touchstart', (e) => {
+                e.preventDefault(); toggleFlashlight();
+            }, { passive: false });
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = performance.now();
+            const delta = Math.min((time - prevTime) / 1000, 0.1);
+
+            if (controlsLocked) {
+                velocity.x -= velocity.x * 10.0 * delta; velocity.z -= velocity.z * 10.0 * delta;
+                velocity.y -= 9.8 * 18.0 * delta;
+
+                let forwardInput = Number(moveForward) - Number(moveBackward);
+                let sideInput = Number(moveRight) - Number(moveLeft);
+
+                if (isTouchDevice) {
+                    if (Math.abs(joystickInput.y) > 0.1) forwardInput = -joystickInput.y;
+                    if (Math.abs(joystickInput.x) > 0.1) sideInput = joystickInput.x;
+                }
+
+                const speed = 42.0;
+                velocity.z -= forwardInput * speed * delta; velocity.x -= sideInput * speed * delta;
+
+                const forwardVector = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+                const sideVector = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+
+                cameraYawGroup.position.addScaledVector(sideVector, -velocity.x * delta);
+                cameraYawGroup.position.addScaledVector(forwardVector, -velocity.z * delta);
+
+                resolveCollisions(cameraYawGroup.position);
+
+                cameraYawGroup.position.y += velocity.y * delta;
+                if (cameraYawGroup.position.y < 1.6) { velocity.y = 0; cameraYawGroup.position.y = 1.6; canJump = true; }
+
+                // Throttle outgoing network updates instead of sending every render frame.
+                broadcastAccumulator += delta;
+                if (broadcastAccumulator >= BROADCAST_INTERVAL) {
+                    broadcastAccumulator = 0;
+                    broadcast({
+                        type: 'update',
+                        x: cameraYawGroup.position.x, y: cameraYawGroup.position.y, z: cameraYawGroup.position.z,
+                        yaw: yaw, pitch: pitch, flashlight: flashlight.visible
+                    });
+                }
+
+                const isMoving = (forwardInput !== 0 || sideInput !== 0) && canJump;
+                if (isMoving) {
+                    walkCycle += delta * 9.0;
+                    handRig.position.x = 0.2 + Math.sin(walkCycle) * 0.035;
+                    handRig.position.y = -0.18 + Math.cos(walkCycle * 2) * 0.02;
+                    stepTimer += delta;
+                    if (stepTimer > 0.35) { playFootstepSound(); stepTimer = 0; }
+                } else {
+                    handRig.position.x += (0.2 - handRig.position.x) * 0.1;
+                    handRig.position.y = -0.18 + Math.sin(time * 0.002) * 0.005;
+                }
+            }
+
+            interpolateRemotePlayers(delta);
+
+            prevTime = time; renderer.render(scene, camera);
+        }
+
+        init(); animate();
+    </script>
+</body>
+</html>
