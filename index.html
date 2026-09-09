@@ -3,145 +3,212 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>3D Horror Maze - Serverless P2P Multiplayer</title>
+    <title>Cozy Chess Room</title>
     <style>
         body, html {
             margin: 0; padding: 0; width: 100%; height: 100%;
-            overflow: hidden; background-color: #000;
-            font-family: 'Courier New', Courier, monospace; user-select: none; touch-action: none;
+            overflow: hidden; background-color: #1a1410;
+            font-family: 'Georgia', 'Courier New', serif; user-select: none; touch-action: none;
         }
 
         #canvas-container { width: 100%; height: 100%; cursor: pointer; }
 
         #crosshair {
             position: absolute; top: 50%; left: 50%; width: 4px; height: 4px;
-            background-color: rgba(255, 255, 255, 0.4); border-radius: 50%;
+            background-color: rgba(255, 235, 200, 0.5); border-radius: 50%;
             transform: translate(-50%, -50%); pointer-events: none; z-index: 10;
         }
 
-        /* Top Right Room Badge */
         #room-badge {
             position: absolute; top: 15px; right: 15px;
-            background: rgba(0, 0, 0, 0.85); border: 2px solid #550000;
-            border-radius: 6px; padding: 8px 14px; color: #ff3333;
+            background: rgba(30, 20, 10, 0.9); border: 2px solid #8a5a2a;
+            border-radius: 6px; padding: 8px 14px; color: #f0c97a;
             font-weight: bold; font-size: 14px; letter-spacing: 1px;
             display: none; align-items: center; gap: 8px; z-index: 200;
-            box-shadow: 0 0 15px rgba(0, 0, 0, 0.8); pointer-events: auto;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.6); pointer-events: auto;
         }
-
         #room-badge button {
-            background: #550000; color: #fff; border: 1px solid #880000;
-            padding: 4px 8px; margin: 0; font-size: 10px; cursor: pointer;
-            border-radius: 4px;
+            background: #8a5a2a; color: #fff; border: 1px solid #a97a3a;
+            padding: 4px 8px; margin: 0; font-size: 10px; cursor: pointer; border-radius: 4px;
         }
-        #room-badge button:hover { background: #880000; }
+        #room-badge button:hover { background: #a97a3a; }
 
         #player-count {
             position: absolute; top: 15px; left: 15px;
-            background: rgba(0, 0, 0, 0.85); border: 2px solid #550000;
-            border-radius: 6px; padding: 8px 14px; color: #ff3333;
+            background: rgba(30, 20, 10, 0.9); border: 2px solid #8a5a2a;
+            border-radius: 6px; padding: 8px 14px; color: #f0c97a;
             font-weight: bold; font-size: 13px; letter-spacing: 1px;
-            display: none; z-index: 200; box-shadow: 0 0 15px rgba(0, 0, 0, 0.8);
+            display: none; z-index: 200; box-shadow: 0 0 15px rgba(0, 0, 0, 0.6);
         }
 
         #btn-pause {
             position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.85); border: 2px solid #550000;
-            border-radius: 6px; width: 40px; height: 36px; color: #ff3333;
+            background: rgba(30, 20, 10, 0.9); border: 2px solid #8a5a2a;
+            border-radius: 6px; width: 40px; height: 36px; color: #f0c97a;
             font-size: 18px; display: none; align-items: center; justify-content: center;
             cursor: pointer; z-index: 200; pointer-events: auto;
-            box-shadow: 0 0 15px rgba(0, 0, 0, 0.8);
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.6);
         }
-        #btn-pause:hover { background: rgba(85, 0, 0, 0.85); }
+        #btn-pause:hover { background: rgba(80, 50, 20, 0.9); }
 
         #pause-menu {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.75);
+            background: rgba(20, 12, 6, 0.75);
             display: none; align-items: center; justify-content: center;
             z-index: 300; pointer-events: auto;
         }
-
-        .pause-box {
-            background: rgba(0, 0, 0, 0.95); border: 2px solid #550000;
-            border-radius: 8px; padding: 30px 40px; text-align: center;
+        .panel-box {
+            background: rgba(25, 16, 8, 0.97); border: 2px solid #8a5a2a;
+            border-radius: 10px; padding: 30px 40px; text-align: center;
             box-shadow: 0 0 30px #000;
         }
-
-        .pause-box h2 {
-            color: #ff3333; letter-spacing: 4px; margin-top: 0; text-shadow: 0 0 10px #ff0000;
+        .panel-box h2, .panel-box h1 {
+            color: #f0c97a; letter-spacing: 3px; margin-top: 0; text-shadow: 0 0 10px rgba(240,180,90,0.4);
         }
+        .panel-box button { display: block; width: 220px; margin: 10px auto; }
+        #btn-leave-room { background: #4a2a1a; border-color: #8a4a2a; }
+        #btn-leave-room:hover { background: #6a3a2a; }
 
-        .pause-box button {
-            display: block; width: 200px; margin: 10px auto;
+        #seat-prompt {
+            position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%);
+            background: rgba(30, 20, 10, 0.9); border: 2px solid #8a5a2a; border-radius: 8px;
+            padding: 10px 20px; color: #f0c97a; font-size: 15px; font-weight: bold;
+            display: none; z-index: 150; pointer-events: none;
         }
-
-        #btn-leave { background: #330000; border-color: #880000; }
-        #btn-leave:hover { background: #660000; }
 
         #ui {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             pointer-events: none; display: flex; flex-direction: column;
-            justify-content: center; align-items: center; color: #8b0000; text-shadow: 0 0 10px #ff0000; z-index: 100;
+            justify-content: center; align-items: center; z-index: 100;
         }
 
-        #instructions {
-            background: rgba(0, 0, 0, 0.9); padding: 30px; border: 2px solid #550000;
-            border-radius: 8px; text-align: center; pointer-events: auto; box-shadow: 0 0 30px #000;
-            max-width: 90%;
+        #main-menu-box {
+            background: rgba(25, 16, 8, 0.96); padding: 30px 36px; border: 2px solid #8a5a2a;
+            border-radius: 10px; text-align: center; pointer-events: auto; box-shadow: 0 0 30px #000;
+            max-width: 92%; width: 380px;
         }
 
-        h1 { margin-top: 0; letter-spacing: 4px; color: #ff3333; }
-        p { color: #bbb; line-height: 1.6; }
-        .key { color: #fff; background: #333; padding: 2px 6px; border-radius: 4px; border: 1px solid #555; }
+        h1 { margin-top: 0; letter-spacing: 3px; color: #f0c97a; text-shadow: 0 0 10px rgba(240,180,90,0.4); }
+        p { color: #d8c3a5; line-height: 1.6; margin: 8px 0; }
+        .hint { font-size: 12px; color: #a89478; }
+        .key { color: #fff; background: #3a2a1a; padding: 2px 6px; border-radius: 4px; border: 1px solid #6a4a2a; }
 
-        #name-section { margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid #550000; }
-        #name-confirmed-text { color: #3adb5f; font-size: 13px; margin: 6px 0 0 0; display: none; }
-        #name-error { color: #ff5555; font-size: 13px; margin: 6px 0 0 0; display: none; }
+        #name-section, #room-section, #elo-display { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #5a3a1a; }
+        #name-confirmed-text { color: #8fd98f; font-size: 13px; margin: 6px 0 0 0; display: none; }
+        #name-error, #room-error { color: #ff8a5c; font-size: 13px; margin: 6px 0 0 0; display: none; }
+        #elo-display { color: #f0c97a; font-weight: bold; display: none; }
+        #elo-title-tag { color: #ffd700; }
+
+        .room-mode-row { display: flex; gap: 6px; justify-content: center; margin-bottom: 8px; }
+        .room-mode-row button { flex: 1; margin: 0; font-size: 13px; padding: 8px 6px; }
+        .room-mode-row button.active { background: #a97a3a; }
 
         input, button {
-            font-family: inherit; font-size: 16px; padding: 10px 14px; margin: 8px 5px;
-            border-radius: 4px; border: 1px solid #550000; outline: none; pointer-events: auto;
+            font-family: inherit; font-size: 15px; padding: 9px 12px; margin: 6px 4px;
+            border-radius: 4px; border: 1px solid #8a5a2a; outline: none; pointer-events: auto;
         }
-
-        input { background: #111; color: #fff; text-align: center; width: 180px; }
+        input { background: #16100a; color: #f0e0c0; text-align: center; width: 170px; }
         input#room-input { text-transform: uppercase; }
-        button { background: #550000; color: #fff; cursor: pointer; font-weight: bold; }
-        button:hover { background: #880000; }
-        button:disabled { background: #333; color: #777; cursor: not-allowed; }
-        button:disabled:hover { background: #333; }
+        input#max-players-input { width: 70px; }
+        button { background: #6a4a1a; color: #fff; cursor: pointer; font-weight: bold; }
+        button:hover { background: #8a6a2a; }
+        button:disabled { background: #3a2a1a; color: #776a56; cursor: not-allowed; }
 
         #mobile-controls {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             pointer-events: none; display: none; z-index: 50;
         }
-
         #joystick-container {
             position: absolute; bottom: 30px; left: 30px; width: 110px; height: 110px;
-            background: rgba(255, 255, 255, 0.08); border: 2px solid rgba(255, 255, 255, 0.25);
+            background: rgba(255, 235, 200, 0.08); border: 2px solid rgba(255, 235, 200, 0.25);
             border-radius: 50%; pointer-events: auto; touch-action: none;
         }
-
         #joystick-knob {
             position: absolute; top: 35px; left: 35px; width: 40px; height: 40px;
-            background: rgba(255, 255, 255, 0.4); border-radius: 50%;
-            box-shadow: 0 0 10px rgba(255, 255, 255, 0.3); pointer-events: none;
+            background: rgba(255, 235, 200, 0.4); border-radius: 50%;
+            box-shadow: 0 0 10px rgba(255, 235, 200, 0.3); pointer-events: none;
         }
-
         .touch-btn {
             position: absolute; width: 64px; height: 64px;
-            background: rgba(0, 0, 0, 0.5); border: 2px solid rgba(255, 255, 255, 0.3);
+            background: rgba(30, 20, 10, 0.6); border: 2px solid rgba(255, 235, 200, 0.3);
             border-radius: 50%; color: #fff; font-weight: bold; font-size: 11px;
             display: flex; justify-content: center; align-items: center;
             pointer-events: auto; touch-action: manipulation; box-shadow: 0 0 10px rgba(0,0,0,0.8);
         }
+        .touch-btn:active { background: rgba(255, 235, 200, 0.3); }
+        #btn-sit-mobile { bottom: 100px; right: 30px; }
+        #btn-music-mobile { bottom: 25px; right: 30px; }
 
-        .touch-btn:active { background: rgba(255, 255, 255, 0.3); }
-        #btn-jump { bottom: 100px; right: 30px; }
-        #btn-flash { bottom: 25px; right: 30px; }
+        /* ---------------- Chess overlay ---------------- */
+        #chess-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(10, 7, 4, 0.55); z-index: 250; pointer-events: auto;
+        }
+        #chess-panel {
+            background: rgba(25, 16, 8, 0.98); border: 2px solid #8a5a2a; border-radius: 10px;
+            padding: 16px 20px; box-shadow: 0 0 40px #000;
+            display: flex; flex-direction: column; align-items: center;
+            max-height: 94vh;
+        }
+        .chess-player-row {
+            display: flex; justify-content: space-between; align-items: center;
+            width: 480px; max-width: 90vw; color: #f0e0c0; font-size: 14px; padding: 4px 2px;
+        }
+        .chess-player-row .name { font-weight: bold; color: #f0c97a; }
+        .chess-player-row .elo { color: #a89478; margin-left: 6px; font-size: 12px; }
+        .chess-player-row .title-tag { color: #ffd700; margin-right: 4px; }
+        .captured-tray { font-size: 16px; min-height: 20px; letter-spacing: 2px; color: #c9b590; }
+
+        #chess-board {
+            display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
+            width: 480px; height: 480px; max-width: 90vw; max-height: 90vw;
+            border: 3px solid #5a3a1a; margin: 6px 0;
+        }
+        .sq { display: flex; align-items: center; justify-content: center; font-size: 34px; position: relative; cursor: pointer; }
+        .sq.light { background: #e8d3ab; }
+        .sq.dark { background: #a97a4a; }
+        .sq.selected { outline: 3px solid #f0c97a; outline-offset: -3px; }
+        .sq.legal::after {
+            content: ''; position: absolute; width: 22%; height: 22%; border-radius: 50%;
+            background: rgba(40, 30, 10, 0.45);
+        }
+        .sq.legal.has-piece::after {
+            width: 90%; height: 90%; border-radius: 50%; background: transparent;
+            border: 4px solid rgba(120, 30, 10, 0.55);
+        }
+        .sq.last-move { box-shadow: inset 0 0 0 3px rgba(240, 201, 122, 0.6); }
+        .piece-w { color: #fff; text-shadow: 0 0 2px #000, 0 0 1px #000; }
+        .piece-b { color: #1a1410; text-shadow: 0 0 2px #eee; }
+
+        #chess-status-text { color: #f0c97a; font-size: 14px; min-height: 20px; margin: 4px 0; text-align: center; }
+
+        #chess-footer {
+            width: 480px; max-width: 90vw; display: flex; justify-content: space-between;
+            align-items: center; margin-top: 8px; padding-top: 8px; border-top: 1px solid #5a3a1a;
+        }
+        #chess-footer button { margin: 0; }
+        #btn-close-spectate { background: #3a2a1a; }
+
+        #promo-picker {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 260;
+        }
+        #promo-picker .panel-box button { display: inline-block; width: 60px; font-size: 26px; }
+
+        #gameover-banner {
+            position: absolute; top: 8%; left: 50%; transform: translateX(-50%);
+            background: rgba(25, 16, 8, 0.97); border: 2px solid #f0c97a; border-radius: 10px;
+            padding: 16px 28px; color: #f0e0c0; text-align: center; z-index: 270; display: none;
+            box-shadow: 0 0 30px rgba(240,180,90,0.3);
+        }
+        #gameover-banner h3 { color: #ffd700; margin: 0 0 6px 0; }
+        #gameover-banner button { margin-top: 8px; }
     </style>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="chess-engine.js"></script>
 </head>
 <body>
 
@@ -152,21 +219,21 @@
         ROOM: <span id="current-room-code">------</span>
         <button id="btn-copy-code">COPY</button>
     </div>
-
     <div id="player-count">PLAYERS: 1</div>
     <div id="btn-pause">&#9776;</div>
+    <div id="seat-prompt"></div>
 
     <div id="pause-menu">
-        <div class="pause-box">
+        <div class="panel-box">
             <h2>PAUSED</h2>
             <button id="btn-resume">RESUME</button>
-            <button id="btn-leave">LEAVE ROOM</button>
+            <button id="btn-leave-room-pause">LEAVE ROOM</button>
         </div>
     </div>
 
     <div id="ui">
-        <div id="instructions">
-            <h1>THE LABYRINTH</h1>
+        <div id="main-menu-box">
+            <h1>COZY CHESS ROOM</h1>
             <p id="status-text">Enter a name to begin</p>
 
             <div id="name-section">
@@ -176,1004 +243,1431 @@
                 <p id="name-error"></p>
             </div>
 
-            <div id="lobby-menu">
-                <button id="btn-host" disabled>HOST GAME</button><br>
-                <input type="text" id="room-input" placeholder="ROOM CODE" maxlength="6" autocomplete="off" spellcheck="false"><br>
-                <button id="btn-join" disabled>JOIN GAME</button>
+            <div id="elo-display"></div>
+
+            <div id="room-section">
+                <div class="room-mode-row">
+                    <button id="mode-host" class="active">HOST</button>
+                    <button id="mode-join">JOIN</button>
+                    <button id="mode-random">RANDOM</button>
+                </div>
+
+                <div id="host-controls">
+                    MAX PLAYERS: <input type="number" id="max-players-input" min="2" max="16" value="4"><br>
+                    <button id="btn-host" disabled>HOST ROOM</button>
+                </div>
+
+                <div id="join-controls" style="display:none;">
+                    <input type="text" id="room-input" placeholder="ROOM CODE" maxlength="6" autocomplete="off" spellcheck="false"><br>
+                    <button id="btn-join" disabled>JOIN ROOM</button>
+                </div>
+
+                <div id="random-controls" style="display:none;">
+                    <button id="btn-random" disabled>JOIN RANDOM ROOM</button>
+                </div>
+
+                <p id="room-error"></p>
             </div>
 
-            <p style="margin-top: 15px; font-size: 12px;">
-                <span class="key">WASD / Joystick</span> - Move | <span class="key">Mouse / Touch</span> - Look<br>
-                <span class="key">SPACE / JUMP</span> - Jump | <span class="key">F / FLASH</span> - Light<br>
-                <span class="key">ESC</span> - Pause / Resume
+            <p class="hint">
+                <span class="key">WASD</span> Move | <span class="key">Mouse</span> Look |
+                <span class="key">E</span> Sit/Spectate | <span class="key">P</span> Music | <span class="key">ESC</span> Pause
             </p>
         </div>
     </div>
 
     <div id="mobile-controls">
-        <div id="joystick-container">
-            <div id="joystick-knob"></div>
-        </div>
-        <div id="btn-jump" class="touch-btn">JUMP</div>
-        <div id="btn-flash" class="touch-btn">FLASH</div>
+        <div id="joystick-container"><div id="joystick-knob"></div></div>
+        <div id="btn-sit-mobile" class="touch-btn">SIT/<br>WATCH</div>
+        <div id="btn-music-mobile" class="touch-btn">MUSIC</div>
     </div>
 
-    <script>
-        const GRID_SIZE = 17, CELL_SIZE = 6, WALL_HEIGHT = 5.5, PLAYER_RADIUS = 0.5;
-        const NAME_STORAGE_KEY = 'horrorMazePlayerName';
-        const CLIENT_ID_STORAGE_KEY = 'horrorMazeClientId';
-        const NAME_RENEW_INTERVAL_MS = 45000; // must be well under the server's 120s TTL
-        let peer = null, connections = {}, peerNames = {};
-        let myPeerId = "", isHost = false, activeRoomCode = "", gameStarted = false;
-        let playerName = "";
-        let clientId = getOrCreateClientId();
-        let nameRenewTimer = null;
+    <!-- 2D chess UI, chess.com-style -->
+    <div id="chess-overlay">
+        <div id="chess-panel">
+            <div class="chess-player-row">
+                <div><span class="title-tag" id="opp-title"></span><span class="name" id="opp-name">Waiting...</span><span class="elo" id="opp-elo"></span></div>
+                <div class="captured-tray" id="opp-captures"></div>
+            </div>
+            <div id="chess-board"></div>
+            <div class="chess-player-row">
+                <div><span class="title-tag" id="self-title"></span><span class="name" id="self-name"></span><span class="elo" id="self-elo"></span></div>
+                <div class="captured-tray" id="self-captures"></div>
+            </div>
+            <div id="chess-status-text"></div>
+            <div id="chess-footer">
+                <button id="btn-stand-up" style="display:none;">STAND UP</button>
+                <button id="btn-close-spectate" style="display:none;">CLOSE</button>
+                <button id="btn-leave-room-chess">LEAVE ROOM</button>
+            </div>
+        </div>
+    </div>
 
-        function getOrCreateClientId() {
-            let id = localStorage.getItem(CLIENT_ID_STORAGE_KEY);
-            if (id) return id;
-            id = (crypto.randomUUID) ? crypto.randomUUID() :
-                'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-                    const r = Math.random() * 16 | 0;
-                    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-                });
-            localStorage.setItem(CLIENT_ID_STORAGE_KEY, id);
-            return id;
+    <div id="promo-picker">
+        <div class="panel-box">
+            <h2>PROMOTE TO</h2>
+            <button data-promo="Q">&#9813;</button>
+            <button data-promo="R">&#9814;</button>
+            <button data-promo="B">&#9815;</button>
+            <button data-promo="N">&#9816;</button>
+        </div>
+    </div>
+
+    <div id="gameover-banner">
+        <h3 id="gameover-title"></h3>
+        <p id="gameover-detail"></p>
+        <button id="btn-gameover-ok">OK</button>
+    </div>
+
+<script>
+'use strict';
+const GRID_SIZE_UNUSED = 0; // (room replaces the old procedural maze entirely)
+const ROOM_HALF_SIZE = 9;     // cozy room is a simple 18x18 square
+const PLAYER_RADIUS = 0.5;
+const NAME_STORAGE_KEY = 'cozyChessPlayerName';
+const CLIENT_ID_STORAGE_KEY = 'cozyChessClientId';
+const NAME_RENEW_INTERVAL_MS = 45000;
+const ROOM_HEARTBEAT_INTERVAL_MS = 30000;
+const SEAT_INTERACT_RADIUS = 2.4;
+
+let peer = null, connections = {}, peerNames = {}; // peerNames[peerId] = {name, elo, title, clientId}
+let myPeerId = "", isHost = false, activeRoomCode = "", gameStarted = false;
+let playerName = "", myElo = 1200, myTitle = null;
+let clientId = getOrCreateClientId();
+let nameRenewTimer = null, roomHeartbeatTimer = null;
+let maxPlayers = 4;
+
+let scene, camera, cameraYawGroup, cameraPitchGroup, renderer, handRig;
+let otherPlayers = {};
+let controlsLocked = false, isPaused = false;
+let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+let canJump = false, velocity = new THREE.Vector3(), prevTime = performance.now();
+let yaw = 0, pitch = 0, wallBoxes = [], audioCtx, stepTimer = 0, walkCycle = 0;
+let musicNodes = null, musicMuted = false;
+
+let isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+let joystickInput = { x: 0, y: 0 }, cameraTouchId = null, lastTouchX = 0, lastTouchY = 0;
+
+const BROADCAST_INTERVAL = 1 / 20;
+let broadcastAccumulator = 0;
+
+// ---------------- Chess room state ----------------
+// Authoritative copy lives on the host (hostRoom); everyone (including the host's own
+// render code) reads from `localRoomState`, which is just the latest broadcast snapshot.
+// This "single source of truth" design means clients never need to resolve conflicting
+// local vs. remote game state - they only ever render what the host most recently sent.
+let hostRoom = null;       // only meaningful when isHost === true
+let localRoomState = null; // { seats:{white,black}, chess, status, lastMove, captured:{w:[],b:[]}, lastResult }
+let mySeat = null;         // 'white' | 'black' | null
+let isSpectating = false;
+let selectedSquare = null;
+let pendingPromotion = null; // {from,to} awaiting a promotion choice from the UI
+
+const CHAIR_POS = {
+    white: new THREE.Vector3(0, 0, 2.2),
+    black: new THREE.Vector3(0, 0, -2.2)
+};
+const TABLE_POS = new THREE.Vector3(0, 0, 0);
+
+function getOrCreateClientId() {
+    let id = localStorage.getItem(CLIENT_ID_STORAGE_KEY);
+    if (id) return id;
+    id = (crypto.randomUUID) ? crypto.randomUUID() :
+        'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+            const r = Math.random() * 16 | 0;
+            return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+        });
+    localStorage.setItem(CLIENT_ID_STORAGE_KEY, id);
+    return id;
+}
+
+function titleForElo(elo) {
+    if (elo >= 2100) return 'GM';
+    if (elo >= 1500) return 'M';
+    return null;
+}
+
+function generateRoomCode() {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+function displayRoomCodeBadge(code) {
+    activeRoomCode = code;
+    document.getElementById('current-room-code').innerText = code;
+    document.getElementById('room-badge').style.display = 'flex';
+}
+
+function updatePlayerCountBadge() {
+    const badge = document.getElementById('player-count');
+    badge.innerText = `PLAYERS: ${Object.keys(otherPlayers).length + 1}`;
+    badge.style.display = gameStarted ? 'block' : 'none';
+}
+
+function setRoomBusy(busy, message) {
+    const nameConfirmed = !!playerName;
+    document.getElementById('btn-host').disabled = busy || !nameConfirmed;
+    document.getElementById('btn-join').disabled = busy || !nameConfirmed;
+    document.getElementById('btn-random').disabled = busy || !nameConfirmed;
+    if (message) document.getElementById('status-text').innerText = message;
+}
+
+// ---------------- Name + Elo ----------------
+function initNameUI() {
+    const nameInput = document.getElementById('name-input');
+    const confirmBtn = document.getElementById('btn-confirm-name');
+
+    const saved = localStorage.getItem(NAME_STORAGE_KEY);
+    if (saved) {
+        nameInput.value = saved;
+        attemptClaimName(saved);
+    }
+
+    confirmBtn.addEventListener('click', () => {
+        const val = nameInput.value.trim().slice(0, 15);
+        if (!val) { showNameError("Please enter a name."); return; }
+        attemptClaimName(val);
+    });
+
+    nameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') confirmBtn.click();
+    });
+}
+
+function showNameError(message) {
+    const el = document.getElementById('name-error');
+    el.innerText = message; el.style.display = 'block';
+}
+function clearNameError() { document.getElementById('name-error').style.display = 'none'; }
+
+async function attemptClaimName(name) {
+    clearNameError();
+    const confirmBtn = document.getElementById('btn-confirm-name');
+    confirmBtn.disabled = true;
+    confirmBtn.innerText = "CHECKING...";
+
+    try {
+        const res = await fetch('/api/name', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'claim', name, clientId })
+        });
+        if (res.status === 409) {
+            showNameError("Name already taken.");
+            confirmBtn.disabled = false; confirmBtn.innerText = "CONFIRM";
+            return;
         }
+        if (!res.ok) console.warn('Name service error, proceeding without uniqueness check.');
+    } catch (err) {
+        console.warn('Name service unreachable, proceeding without uniqueness check.');
+    }
 
-        let scene, camera, cameraYawGroup, cameraPitchGroup, renderer, flashlight, flashlightFill, handRig;
-        let otherPlayers = {};
-        let controlsLocked = false, isPaused = false;
-        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
-        let canJump = false, velocity = new THREE.Vector3(), prevTime = performance.now();
-        let yaw = 0, pitch = 0, maze = [], wallBoxes = [], audioCtx, stepTimer = 0, walkCycle = 0;
+    confirmBtn.disabled = false; confirmBtn.innerText = "CONFIRM";
+    confirmName(name);
+    startNameRenewal(name);
+    fetchMyElo();
+}
 
-        let isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
-        let joystickInput = { x: 0, y: 0 }, cameraTouchId = null, lastTouchX = 0, lastTouchY = 0;
+function confirmName(name) {
+    playerName = name;
+    localStorage.setItem(NAME_STORAGE_KEY, name);
+    const confirmedText = document.getElementById('name-confirmed-text');
+    confirmedText.innerText = `Playing as: ${name}`;
+    confirmedText.style.display = 'block';
+    document.getElementById('status-text').innerText = "Choose how to play";
+    setRoomBusy(false);
+}
 
-        // Networking rate control
-        const BROADCAST_INTERVAL = 1 / 20; // send state 20x/sec instead of every render frame
-        let broadcastAccumulator = 0;
+function startNameRenewal(name) {
+    if (nameRenewTimer) clearInterval(nameRenewTimer);
+    nameRenewTimer = setInterval(() => {
+        fetch('/api/name', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'claim', name, clientId })
+        }).catch(() => {});
+    }, NAME_RENEW_INTERVAL_MS);
+}
 
-        function generateRoomCode() {
-            return Math.random().toString(36).substring(2, 8).toUpperCase();
+function releaseNameBeacon() {
+    if (!playerName) return;
+    const payload = JSON.stringify({ action: 'release', name: playerName, clientId });
+    if (navigator.sendBeacon) navigator.sendBeacon('/api/name', new Blob([payload], { type: 'application/json' }));
+    else fetch('/api/name', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true }).catch(() => {});
+}
+
+async function fetchMyElo() {
+    try {
+        const res = await fetch('/api/elo', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'get', clientId })
+        });
+        if (res.ok) {
+            const data = await res.json();
+            myElo = data.elo; myTitle = data.title;
         }
+    } catch (err) {
+        console.warn('Elo service unreachable, using default rating locally.');
+    }
+    renderEloDisplay();
+}
 
-        function displayRoomCodeBadge(code) {
-            activeRoomCode = code;
-            document.getElementById('current-room-code').innerText = code;
-            document.getElementById('room-badge').style.display = 'flex';
+function renderEloDisplay() {
+    const el = document.getElementById('elo-display');
+    el.innerHTML = `${myElo} ELO` + (myTitle ? ` &mdash; <span id="elo-title-tag">${myTitle === 'GM' ? 'Grandmaster' : 'Master'}</span>` : '');
+    el.style.display = 'block';
+}
+
+// ---------------- Room mode switching (host / join / random) ----------------
+function initRoomModeUI() {
+    const modes = ['host', 'join', 'random'];
+    modes.forEach(m => {
+        document.getElementById('mode-' + m).addEventListener('click', () => {
+            modes.forEach(mm => document.getElementById('mode-' + mm).classList.toggle('active', mm === m));
+            document.getElementById('host-controls').style.display = m === 'host' ? 'block' : 'none';
+            document.getElementById('join-controls').style.display = m === 'join' ? 'block' : 'none';
+            document.getElementById('random-controls').style.display = m === 'random' ? 'block' : 'none';
+        });
+    });
+}
+
+function showRoomError(message) {
+    const el = document.getElementById('room-error');
+    el.innerText = message; el.style.display = 'block';
+}
+function clearRoomError() { document.getElementById('room-error').style.display = 'none'; }
+
+function initP2P(roomCode, hosting) {
+    isHost = hosting;
+    const fullId = "cozy-chess-" + roomCode;
+    setRoomBusy(true, hosting ? "Creating room..." : "Connecting to Host...");
+
+    peer = hosting ? new Peer(fullId) : new Peer();
+
+    peer.on('open', (id) => {
+        myPeerId = id;
+        displayRoomCodeBadge(roomCode);
+        document.getElementById('status-text').innerText = hosting ? `ROOM CODE: ${roomCode}` : "Connecting to Host...";
+
+        if (!hosting) {
+            const conn = peer.connect(fullId, { reliable: true });
+            setupConnection(conn);
+        } else {
+            hostRoom = { seats: { white: null, black: null }, chess: null, status: 'waiting', lastMove: null,
+                captured: { w: [], b: [] }, lastResult: null };
+            registerRoom();
+            startGame();
         }
+    });
 
-        function updatePlayerCountBadge() {
-            const badge = document.getElementById('player-count');
-            badge.innerText = `PLAYERS: ${Object.keys(otherPlayers).length + 1}`;
-            badge.style.display = gameStarted ? 'block' : 'none';
+    peer.on('connection', (conn) => {
+        if (isHost && Object.keys(connections).length + 1 >= maxPlayers) {
+            conn.on('open', () => { conn.send({ type: 'roomFull' }); setTimeout(() => conn.close(), 200); });
+            return;
         }
+        setupConnection(conn);
+    });
 
-        function setLobbyBusy(busy, message) {
-            const nameConfirmed = !!playerName;
-            document.getElementById('btn-host').disabled = busy || !nameConfirmed;
-            document.getElementById('btn-join').disabled = busy || !nameConfirmed;
-            if (message) document.getElementById('status-text').innerText = message;
+    peer.on('disconnected', () => {
+        if (peer && !peer.destroyed) { document.getElementById('status-text').innerText = "Reconnecting..."; peer.reconnect(); }
+    });
+
+    peer.on('error', (err) => {
+        setRoomBusy(false);
+        let msg;
+        switch (err.type) {
+            case 'peer-unavailable': msg = "Room not found. Check the code and try again."; break;
+            case 'unavailable-id': msg = "That room code is already in use. Try hosting again."; break;
+            case 'network': msg = "Network error - check your connection."; break;
+            default: msg = "Connection error: " + err.type;
         }
+        showRoomError(msg);
+        document.getElementById('room-badge').style.display = 'none';
+    });
+}
 
-        // ---------- Name entry ----------
-        function initNameUI() {
-            const nameInput = document.getElementById('name-input');
-            const confirmBtn = document.getElementById('btn-confirm-name');
+function registerRoom() {
+    fetch('/api/rooms', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'register', code: activeRoomCode, hostClientId: clientId, maxPlayers, count: 1 })
+    }).catch(() => {});
+    if (roomHeartbeatTimer) clearInterval(roomHeartbeatTimer);
+    roomHeartbeatTimer = setInterval(() => {
+        fetch('/api/rooms', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'heartbeat', code: activeRoomCode, hostClientId: clientId, maxPlayers, count: Object.keys(connections).length + 1 })
+        }).catch(() => {});
+    }, ROOM_HEARTBEAT_INTERVAL_MS);
+}
 
-            const saved = localStorage.getItem(NAME_STORAGE_KEY);
-            if (saved) {
-                nameInput.value = saved;
-                // Re-claim it under our stored clientId so a returning player keeps their
-                // name without retyping it - if someone else grabbed it while we were away,
-                // this will surface "Name already taken" just like a fresh attempt would.
-                attemptClaimName(saved);
-            }
+function unregisterRoomBeacon() {
+    if (!isHost || !activeRoomCode) return;
+    const payload = JSON.stringify({ action: 'unregister', code: activeRoomCode });
+    if (navigator.sendBeacon) navigator.sendBeacon('/api/rooms', new Blob([payload], { type: 'application/json' }));
+    else fetch('/api/rooms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true }).catch(() => {});
+}
 
-            confirmBtn.addEventListener('click', () => {
-                const val = nameInput.value.trim().slice(0, 15);
-                if (!val) { showNameError("Please enter a name."); return; }
-                attemptClaimName(val);
-            });
+// ---------------- Connection setup ----------------
+function setupConnection(conn) {
+    conn.on('open', () => {
+        connections[conn.peer] = conn;
+        setRoomBusy(false);
+        if (!isHost) startGame();
+        conn.send({ type: 'hello', name: playerName, elo: myElo, title: myTitle, clientId: clientId });
+        if (isHost) conn.send({ type: 'roomState', state: hostRoom });
+        updatePlayerCountBadge();
+    });
 
-            nameInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') confirmBtn.click();
-            });
+    conn.on('data', (data) => handleData(conn.peer, data));
+    conn.on('close', () => removeRemotePlayer(conn.peer));
+    conn.on('error', () => removeRemotePlayer(conn.peer));
+}
+
+function handleData(fromPeerId, data) {
+    if (data.type === 'roomFull') {
+        alert("That room is full.");
+        if (peer && !peer.destroyed) peer.destroy();
+        location.reload();
+        return;
+    }
+
+    if (data.type === 'update') {
+        if (!otherPlayers[fromPeerId]) { otherPlayers[fromPeerId] = createRemotePlayerMesh(fromPeerId, peerNames[fromPeerId]); updatePlayerCountBadge(); }
+        updateRemotePlayerMesh(otherPlayers[fromPeerId], data);
+        if (isHost) broadcast({ type: 'updateFromHost', id: fromPeerId, data: data }, fromPeerId);
+        return;
+    }
+    if (data.type === 'updateFromHost') {
+        if (!otherPlayers[data.id]) { otherPlayers[data.id] = createRemotePlayerMesh(data.id, peerNames[data.id]); updatePlayerCountBadge(); }
+        updateRemotePlayerMesh(otherPlayers[data.id], data.data);
+        return;
+    }
+
+    if (data.type === 'hello') {
+        peerNames[fromPeerId] = { name: data.name, elo: data.elo, title: data.title, clientId: data.clientId };
+        if (!otherPlayers[fromPeerId]) { otherPlayers[fromPeerId] = createRemotePlayerMesh(fromPeerId, peerNames[fromPeerId]); updatePlayerCountBadge(); }
+        else setPlayerName(otherPlayers[fromPeerId], peerNames[fromPeerId]);
+        if (isHost) {
+            Object.entries(peerNames).forEach(([id, info]) => { if (id !== fromPeerId) connections[fromPeerId].send({ type: 'helloFromHost', id, info }); });
+            broadcast({ type: 'helloFromHost', id: fromPeerId, info: peerNames[fromPeerId] }, fromPeerId);
         }
+        return;
+    }
+    if (data.type === 'helloFromHost') {
+        peerNames[data.id] = data.info;
+        if (!otherPlayers[data.id]) { otherPlayers[data.id] = createRemotePlayerMesh(data.id, data.info); updatePlayerCountBadge(); }
+        else setPlayerName(otherPlayers[data.id], data.info);
+        return;
+    }
 
-        function showNameError(message) {
-            const errorText = document.getElementById('name-error');
-            errorText.innerText = message;
-            errorText.style.display = 'block';
-        }
+    if (data.type === 'roomState') {
+        applyRoomState(data.state);
+        return;
+    }
 
-        function clearNameError() {
-            document.getElementById('name-error').style.display = 'none';
-        }
+    // ---- Host-only inbound requests ----
+    if (!isHost) return;
+    if (data.type === 'sitRequest') {
+        const info = peerNames[fromPeerId];
+        hostTrySit(data.seat, { peerId: fromPeerId, clientId: info ? info.clientId : null, name: info ? info.name : '???', elo: info ? info.elo : 1200, title: info ? info.title : null });
+    } else if (data.type === 'standRequest') {
+        hostTryStand(fromPeerId);
+    } else if (data.type === 'moveRequest') {
+        hostHandleMoveRequest(fromPeerId, data.move);
+    }
+}
 
-        async function attemptClaimName(name) {
-            clearNameError();
-            const confirmBtn = document.getElementById('btn-confirm-name');
-            confirmBtn.disabled = true;
-            confirmBtn.innerText = "CHECKING...";
+function removeRemotePlayer(peerId) {
+    if (otherPlayers[peerId]) {
+        const pg = otherPlayers[peerId];
+        if (pg.userData.nameSprite) { pg.userData.nameSprite.material.map.dispose(); pg.userData.nameSprite.material.dispose(); }
+        scene.remove(pg);
+        delete otherPlayers[peerId];
+    }
+    delete connections[peerId];
+    delete peerNames[peerId];
+    updatePlayerCountBadge();
 
-            try {
-                const res = await fetch('/api/name', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'claim', name, clientId })
-                });
-
-                if (res.status === 409) {
-                    showNameError("Name already taken.");
-                    confirmBtn.disabled = false;
-                    confirmBtn.innerText = "CONFIRM";
-                    return;
-                }
-                if (!res.ok) {
-                    // Name service errored (e.g. KV not set up yet) - don't hard-block play,
-                    // just proceed without server-side uniqueness for this session.
-                    console.warn('Name service error, proceeding without uniqueness check.');
-                }
-            } catch (err) {
-                // Likely running locally without the /api route deployed - degrade gracefully.
-                console.warn('Name service unreachable, proceeding without uniqueness check.');
-            }
-
-            confirmBtn.disabled = false;
-            confirmBtn.innerText = "CONFIRM";
-            confirmName(name);
-            startNameRenewal(name);
-        }
-
-        function confirmName(name) {
-            playerName = name;
-            localStorage.setItem(NAME_STORAGE_KEY, name);
-            const confirmedText = document.getElementById('name-confirmed-text');
-            confirmedText.innerText = `Playing as: ${name}`;
-            confirmedText.style.display = 'block';
-            document.getElementById('status-text').innerText = "Choose Host or Join to start";
-            setLobbyBusy(false);
-        }
-
-        function startNameRenewal(name) {
-            if (nameRenewTimer) clearInterval(nameRenewTimer);
-            nameRenewTimer = setInterval(() => {
-                fetch('/api/name', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'claim', name, clientId })
-                }).catch(() => { /* best-effort; TTL just lapses if this keeps failing */ });
-            }, NAME_RENEW_INTERVAL_MS);
-        }
-
-        function releaseNameBeacon() {
-            if (!playerName) return;
-            const payload = JSON.stringify({ action: 'release', name: playerName, clientId });
-            if (navigator.sendBeacon) {
-                navigator.sendBeacon('/api/name', new Blob([payload], { type: 'application/json' }));
+    if (isHost && hostRoom) {
+        let seatColor = null;
+        if (hostRoom.seats.white && hostRoom.seats.white.peerId === peerId) seatColor = 'white';
+        if (hostRoom.seats.black && hostRoom.seats.black.peerId === peerId) seatColor = 'black';
+        if (seatColor) {
+            if (hostRoom.status === 'ongoing') {
+                hostResolveGameEnd('forfeit', seatColor === 'white' ? 'black' : 'white');
             } else {
-                fetch('/api/name', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true }).catch(() => {});
+                hostRoom.seats[seatColor] = null;
+                hostBroadcastRoomState();
             }
         }
+    }
+}
 
-        // ---------- P2P setup ----------
-        function initP2P(roomCode, hosting) {
-            isHost = hosting;
-            const fullId = "horror-maze-" + roomCode;
-            setLobbyBusy(true, hosting ? "Creating room..." : "Connecting to Host...");
+function broadcast(data, excludePeerId) {
+    Object.keys(connections).forEach(id => {
+        if (id !== excludePeerId && connections[id].open) connections[id].send(data);
+    });
+}
 
-            peer = hosting ? new Peer(fullId) : new Peer();
+function colorForPeerId(id) {
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) & 0xffffffff;
+    const hue = Math.abs(hash) % 360;
+    const color = new THREE.Color(); color.setHSL(hue / 360, 0.5, 0.42);
+    return color;
+}
 
-            peer.on('open', (id) => {
-                myPeerId = id;
-                displayRoomCodeBadge(roomCode);
-                document.getElementById('status-text').innerText = hosting ?
-                    `ROOM CODE: ${roomCode}` : "Connecting to Host...";
+function updateRemotePlayerMesh(playerGroup, data) {
+    const ud = playerGroup.userData;
+    ud.targetPosition.set(data.x, data.y - 1.6, data.z);
+    ud.targetYaw = data.yaw; ud.targetPitch = data.pitch;
+}
 
-                if (!hosting) {
-                    const conn = peer.connect(fullId, { reliable: true });
-                    setupConnection(conn);
-                } else {
-                    startGame();
-                }
+function interpolateRemotePlayers(delta) {
+    const lerpF = Math.min(1, delta * 12);
+    Object.values(otherPlayers).forEach((playerGroup) => {
+        const ud = playerGroup.userData;
+        if (!ud.targetPosition) return;
+        playerGroup.position.lerp(ud.targetPosition, lerpF);
+        let yawDiff = ud.targetYaw - playerGroup.rotation.y;
+        yawDiff = ((yawDiff + Math.PI) % (Math.PI * 2)) - Math.PI;
+        playerGroup.rotation.y += yawDiff * lerpF;
+        if (ud.headAndHandGroup) ud.headAndHandGroup.rotation.x += (ud.targetPitch - ud.headAndHandGroup.rotation.x) * lerpF;
+    });
+}
+
+// ---------------- Name tag sprites ----------------
+function nameLabelFor(info) {
+    if (!info) return '???';
+    const prefix = info.title ? `[${info.title}] ` : '';
+    return prefix + info.name;
+}
+
+function createNameTagSprite(text) {
+    const canvas = document.createElement('canvas'); canvas.width = 320; canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    ctx.font = 'bold 30px Georgia'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(0,0,0,0.9)'; ctx.strokeText(text, 160, 32);
+    ctx.fillStyle = text.startsWith('[GM]') ? '#ffd700' : (text.startsWith('[M]') ? '#c0c0f0' : '#f0c97a');
+    ctx.fillText(text, 160, 32);
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true });
+    const sprite = new THREE.Sprite(material);
+    sprite.scale.set(1.5, 0.3, 1); sprite.renderOrder = 999;
+    return sprite;
+}
+
+function setPlayerName(playerGroup, info) {
+    const label = nameLabelFor(info);
+    if (playerGroup.userData.playerLabel === label) return;
+    playerGroup.userData.playerLabel = label;
+    const old = playerGroup.userData.nameSprite;
+    const fresh = createNameTagSprite(label);
+    fresh.position.copy(old.position);
+    playerGroup.remove(old); old.material.map.dispose(); old.material.dispose();
+    playerGroup.add(fresh); playerGroup.userData.nameSprite = fresh;
+}
+
+function createRemotePlayerMesh(peerId, info) {
+    const label = nameLabelFor(info);
+    const playerGroup = new THREE.Group();
+    const bodyColor = peerId ? colorForPeerId(peerId) : new THREE.Color(0x8a5a2a);
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 1.4, 12), new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.7 }));
+    body.position.y = 0.7; playerGroup.add(body);
+
+    const headAndHandGroup = new THREE.Group();
+    headAndHandGroup.position.set(0, 1.6, 0);
+    playerGroup.add(headAndHandGroup);
+
+    const headTexture = createSmileyFaceTexture();
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 16), new THREE.MeshStandardMaterial({ map: headTexture, roughness: 0.5 }));
+    headAndHandGroup.add(head);
+
+    const nameSprite = createNameTagSprite(label);
+    nameSprite.position.set(0, 2.05, 0);
+    playerGroup.add(nameSprite);
+
+    playerGroup.userData = {
+        headAndHandGroup: headAndHandGroup, nameSprite: nameSprite, playerLabel: label,
+        targetPosition: playerGroup.position.clone(), targetYaw: 0, targetPitch: 0
+    };
+    scene.add(playerGroup);
+    return playerGroup;
+}
+
+function createSmileyFaceTexture() {
+    const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#c48d71'; ctx.fillRect(0, 0, 512, 256);
+    const cx = 384, cy = 128;
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.arc(cx - 45, cy - 25, 14, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + 45, cy - 25, 14, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(cx - 48, cy - 28, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + 42, cy - 28, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#111'; ctx.lineWidth = 10; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(cx, cy + 10, 50, 0.15 * Math.PI, 0.85 * Math.PI, false); ctx.stroke();
+    return new THREE.CanvasTexture(canvas);
+}
+
+// ---------------- Cozy audio ----------------
+function initAudio() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    startCozyMusic();
+}
+
+function startCozyMusic() {
+    if (!audioCtx || musicNodes) return;
+    const master = audioCtx.createGain();
+    master.gain.setValueAtTime(musicMuted ? 0 : 0.18, audioCtx.currentTime);
+    master.connect(audioCtx.destination);
+
+    // A gentle looping arpeggio over a warm chord (all synthesized - no external audio files).
+    const notes = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63]; // C4 E4 G4 C5 G4 E4
+    let step = 0;
+    const intervalId = setInterval(() => {
+        if (!audioCtx) return;
+        const freq = notes[step % notes.length];
+        step++;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.15);
+        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.1);
+        osc.connect(gain); gain.connect(master);
+        osc.start(); osc.stop(audioCtx.currentTime + 1.2);
+    }, 650);
+
+    // Soft sustained pad underneath.
+    const pad = audioCtx.createOscillator();
+    const padGain = audioCtx.createGain();
+    pad.type = 'triangle'; pad.frequency.setValueAtTime(130.81, audioCtx.currentTime); // C3
+    padGain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+    pad.connect(padGain); padGain.connect(master); pad.start();
+
+    musicNodes = { master, intervalId, pad };
+}
+
+function toggleMusic() {
+    musicMuted = !musicMuted;
+    if (musicNodes && audioCtx) {
+        musicNodes.master.gain.linearRampToValueAtTime(musicMuted ? 0 : 0.18, audioCtx.currentTime + 0.2);
+    }
+}
+
+function playClickSound() {
+    if (!audioCtx) return;
+    const click = audioCtx.createOscillator(), gain = audioCtx.createGain();
+    click.type = 'sine'; click.frequency.setValueAtTime(660, audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.25, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+    click.connect(gain); gain.connect(audioCtx.destination); click.start(); click.stop(audioCtx.currentTime + 0.15);
+}
+
+function playFootstepSound() {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+    osc.type = 'triangle'; osc.frequency.setValueAtTime(90 + Math.random() * 20, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.1);
+    gain.gain.setValueAtTime(0.15, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+    osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+}
+
+// ---------------- Scene: cozy room, table, chairs ----------------
+function createWoodTexture(baseColor, grainColor) {
+    const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 512;
+    const ctx = canvas.getContext('2d'); ctx.fillStyle = baseColor; ctx.fillRect(0, 0, 512, 512);
+    ctx.strokeStyle = grainColor; ctx.globalAlpha = 0.25;
+    for (let i = 0; i < 40; i++) {
+        ctx.lineWidth = 1 + Math.random() * 2;
+        ctx.beginPath();
+        let y = Math.random() * 512;
+        ctx.moveTo(0, y);
+        for (let x = 0; x <= 512; x += 32) y += (Math.random() - 0.5) * 8;
+        ctx.lineTo(512, y);
+        ctx.stroke();
+    }
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+    return tex;
+}
+
+function createCheckerTexture() {
+    const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+        ctx.fillStyle = (r + c) % 2 === 0 ? '#e8d3ab' : '#a97a4a';
+        ctx.fillRect(c * 32, r * 32, 32, 32);
+    }
+    return new THREE.CanvasTexture(canvas);
+}
+
+function buildChairMesh() {
+    const group = new THREE.Group();
+    const woodMat = new THREE.MeshStandardMaterial({ map: createWoodTexture('#6a4a2a', '#3a2510'), roughness: 0.8 });
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.12, 0.9), woodMat);
+    seat.position.y = 0.9; group.add(seat);
+    const back = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.0, 0.12), woodMat);
+    back.position.set(0, 1.4, -0.4); group.add(back);
+    const legPositions = [[-0.38, -0.38], [0.38, -0.38], [-0.38, 0.38], [0.38, 0.38]];
+    legPositions.forEach(([x, z]) => {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.9, 8), woodMat);
+        leg.position.set(x, 0.45, z); group.add(leg);
+    });
+    return group;
+}
+
+function buildTableMesh() {
+    const group = new THREE.Group();
+    const woodMat = new THREE.MeshStandardMaterial({ map: createWoodTexture('#5a3a1a', '#2a1a0a'), roughness: 0.7 });
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.3, 0.12, 24), woodMat);
+    top.position.y = 1.1; group.add(top);
+    const board = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.95, 0.02, 4), new THREE.MeshStandardMaterial({ map: createCheckerTexture(), roughness: 0.6 }));
+    // Rotate the checker cylinder so its flat 4-sided cap approximates a square board face-on;
+    // simpler and cheaper than a true BoxGeometry-with-checker-UVs for this decorative purpose.
+    board.rotation.y = Math.PI / 4;
+    board.position.y = 1.17; group.add(board);
+    const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.28, 1.0, 16), woodMat);
+    pedestal.position.y = 0.55; group.add(pedestal);
+    return group;
+}
+
+function init() {
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+    scene = new THREE.Scene(); scene.background = new THREE.Color(0x2a1f14);
+    scene.fog = new THREE.FogExp2(0x2a1f14, 0.02);
+
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    cameraYawGroup = new THREE.Group(); cameraPitchGroup = new THREE.Group();
+    cameraYawGroup.position.set(0, 1.6, 6);
+    cameraYawGroup.add(cameraPitchGroup); cameraPitchGroup.add(camera);
+    scene.add(cameraYawGroup);
+
+    scene.add(new THREE.AmbientLight(0xffe0b0, 0.9));
+    const warmLight = new THREE.PointLight(0xffcf8a, 1.3, 30);
+    warmLight.position.set(0, 4, 0); scene.add(warmLight);
+    const fireGlow = new THREE.PointLight(0xff8a3a, 1.1, 10);
+    fireGlow.position.set(-ROOM_HALF_SIZE + 0.6, 1.2, 0); scene.add(fireGlow);
+
+    handRig = new THREE.Group(); cameraPitchGroup.add(handRig); // kept simple/empty - no flashlight needed here
+
+    const floorMat = new THREE.MeshStandardMaterial({ map: createWoodTexture('#7a5230', '#3a2510'), roughness: 0.85 });
+    floorMat.map.repeat.set(6, 6);
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_HALF_SIZE * 2, ROOM_HALF_SIZE * 2), floorMat);
+    floor.rotation.x = -Math.PI / 2; scene.add(floor);
+
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0x8a6a4a, roughness: 0.9 });
+    const wallHeight = 5;
+    const wallDefs = [
+        { pos: [0, wallHeight / 2, -ROOM_HALF_SIZE], size: [ROOM_HALF_SIZE * 2, wallHeight, 0.4] },
+        { pos: [0, wallHeight / 2, ROOM_HALF_SIZE], size: [ROOM_HALF_SIZE * 2, wallHeight, 0.4] },
+        { pos: [-ROOM_HALF_SIZE, wallHeight / 2, 0], size: [0.4, wallHeight, ROOM_HALF_SIZE * 2] },
+        { pos: [ROOM_HALF_SIZE, wallHeight / 2, 0], size: [0.4, wallHeight, ROOM_HALF_SIZE * 2] }
+    ];
+    wallDefs.forEach(def => {
+        const wall = new THREE.Mesh(new THREE.BoxGeometry(...def.size), wallMat);
+        wall.position.set(...def.pos); scene.add(wall);
+        wallBoxes.push(new THREE.Box3().setFromObject(wall));
+    });
+
+    const table = buildTableMesh(); table.position.copy(TABLE_POS); scene.add(table);
+    wallBoxes.push(new THREE.Box3().setFromObject(table));
+
+    const chairWhite = buildChairMesh(); chairWhite.position.copy(CHAIR_POS.white); scene.add(chairWhite);
+    const chairBlack = buildChairMesh(); chairBlack.position.copy(CHAIR_POS.black); chairBlack.rotation.y = Math.PI; scene.add(chairBlack);
+
+    initNameUI(); initRoomModeUI();
+    setupUI(); setupControls(); setupMobileControls(); setupPauseMenu(); setupChessUI();
+    window.addEventListener('resize', onWindowResize);
+    window.addEventListener('beforeunload', () => {
+        handleUngracefulExit();
+        if (peer && !peer.destroyed) peer.destroy();
+        releaseNameBeacon();
+        unregisterRoomBeacon();
+    });
+}
+
+function handleUngracefulExit() {
+    // Best-effort: if we're a seated player in a live game and the tab is closing without
+    // going through the Leave Room button, still try to report the forfeit via sendBeacon.
+    // This can't be 100% guaranteed (browsers don't promise unload handlers finish), but it
+    // covers the common case (closed tab / navigated away) better than doing nothing.
+    if (!localRoomState || localRoomState.status !== 'ongoing' || !mySeat) return;
+    const seat = localRoomState.seats[mySeat];
+    const otherColor = mySeat === 'white' ? 'black' : 'white';
+    const other = localRoomState.seats[otherColor];
+    if (!seat || !other) return;
+    const payload = JSON.stringify({
+        action: 'report',
+        aClientId: mySeat === 'white' ? seat.clientId : other.clientId,
+        bClientId: mySeat === 'white' ? other.clientId : seat.clientId,
+        result: mySeat === 'white' ? 'b' : 'a' // the OTHER seat wins because I'm the one leaving
+    });
+    if (navigator.sendBeacon) navigator.sendBeacon('/api/elo', new Blob([payload], { type: 'application/json' }));
+}
+
+// ---------------- Sitting / chess room logic (host authoritative) ----------------
+function hostTrySit(seatColor, playerInfo) {
+    if (!hostRoom || hostRoom.seats[seatColor]) return; // seat taken or no room yet
+    // A given clientId can't occupy both seats at once.
+    const other = seatColor === 'white' ? hostRoom.seats.black : hostRoom.seats.white;
+    if (other && other.clientId && other.clientId === playerInfo.clientId) return;
+    hostRoom.seats[seatColor] = playerInfo;
+    if (hostRoom.seats.white && hostRoom.seats.black && !hostRoom.chess) {
+        hostRoom.chess = ChessEngine.createInitialState();
+        hostRoom.status = 'ongoing';
+        hostRoom.captured = { w: [], b: [] };
+        hostRoom.lastMove = null;
+        hostRoom.lastResult = null;
+    }
+    hostBroadcastRoomState();
+}
+
+function hostTryStand(peerId) {
+    if (!hostRoom || hostRoom.status === 'ongoing') return; // can't stand mid-game; use Leave Room
+    ['white', 'black'].forEach(color => {
+        if (hostRoom.seats[color] && hostRoom.seats[color].peerId === peerId) hostRoom.seats[color] = null;
+    });
+    hostBroadcastRoomState();
+}
+
+function hostHandleMoveRequest(fromPeerId, move) {
+    if (!hostRoom || hostRoom.status !== 'ongoing' || !hostRoom.chess) return;
+    const seatColor = hostRoom.chess.turn === 'w' ? 'white' : 'black';
+    const seat = hostRoom.seats[seatColor];
+    if (!seat || seat.peerId !== fromPeerId) return; // not this player's turn/seat
+
+    const legal = ChessEngine.generateLegalMoves(hostRoom.chess);
+    const match = legal.find(m => m.from === move.from && m.to === move.to &&
+        (m.promotion ? m.promotion === move.promotion : !move.promotion));
+    if (!match) return; // reject anything that isn't exactly a legal move
+
+    const capturedPiece = hostRoom.chess.board[match.to];
+    if (capturedPiece) hostRoom.captured[ChessEngine.colorOf(capturedPiece)].push(capturedPiece);
+    else if (match.enPassant) hostRoom.captured[hostRoom.chess.turn === 'w' ? 'b' : 'w'].push((hostRoom.chess.turn === 'w' ? 'b' : 'w') + 'P');
+
+    hostRoom.chess = ChessEngine.makeMove(hostRoom.chess, match);
+    hostRoom.lastMove = { from: match.from, to: match.to };
+
+    const statusResult = ChessEngine.getGameStatus(hostRoom.chess);
+    if (statusResult.status === 'checkmate') {
+        hostResolveGameEnd('checkmate', statusResult.winner === 'w' ? 'white' : 'black');
+    } else if (statusResult.status === 'stalemate' || statusResult.status.startsWith('draw')) {
+        hostResolveGameEnd(statusResult.status, null);
+    } else {
+        hostRoom.status = 'ongoing';
+        hostBroadcastRoomState();
+    }
+}
+
+async function hostResolveGameEnd(reason, winnerColor) {
+    hostRoom.status = reason;
+    const white = hostRoom.seats.white, black = hostRoom.seats.black;
+    let result;
+    if (winnerColor === 'white') result = 'a';
+    else if (winnerColor === 'black') result = 'b';
+    else result = 'draw';
+
+    let eloResult = null;
+    if (white && black && white.clientId && black.clientId) {
+        try {
+            const res = await fetch('/api/elo', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'report', aClientId: white.clientId, bClientId: black.clientId, result })
             });
-
-            peer.on('connection', (conn) => {
-                setupConnection(conn);
-            });
-
-            peer.on('disconnected', () => {
-                // Lost connection to the signaling server (not to other players) - try to recover
-                if (peer && !peer.destroyed) {
-                    document.getElementById('status-text').innerText = "Reconnecting...";
-                    peer.reconnect();
-                }
-            });
-
-            peer.on('error', (err) => {
-                setLobbyBusy(false);
-                let msg;
-                switch (err.type) {
-                    case 'peer-unavailable':
-                        msg = "Room not found. Check the code and try again.";
-                        break;
-                    case 'unavailable-id':
-                        msg = "That room code is already in use. Try hosting again.";
-                        break;
-                    case 'network':
-                        msg = "Network error - check your connection.";
-                        break;
-                    default:
-                        msg = "Connection error: " + err.type;
-                }
-                document.getElementById('status-text').innerText = msg;
-                document.getElementById('room-badge').style.display = 'none';
-            });
-        }
-
-        function setupConnection(conn) {
-            conn.on('open', () => {
-                connections[conn.peer] = conn;
-                setLobbyBusy(false);
-                if (!isHost) startGame();
-                conn.send({ type: 'hello', name: playerName });
-                updatePlayerCountBadge();
-            });
-
-            conn.on('data', (data) => {
-                if (data.type === 'update') {
-                    if (!otherPlayers[conn.peer]) {
-                        otherPlayers[conn.peer] = createRemotePlayerMesh(conn.peer, peerNames[conn.peer]);
-                        updatePlayerCountBadge();
-                    }
-                    updateRemotePlayerMesh(otherPlayers[conn.peer], data);
-
-                    if (isHost) {
-                        broadcast({ type: 'updateFromHost', id: conn.peer, data: data }, conn.peer);
-                    }
-                } else if (data.type === 'updateFromHost') {
-                    if (!otherPlayers[data.id]) {
-                        otherPlayers[data.id] = createRemotePlayerMesh(data.id, peerNames[data.id]);
-                        updatePlayerCountBadge();
-                    }
-                    updateRemotePlayerMesh(otherPlayers[data.id], data.data);
-                } else if (data.type === 'hello') {
-                    peerNames[conn.peer] = data.name;
-                    if (!otherPlayers[conn.peer]) {
-                        otherPlayers[conn.peer] = createRemotePlayerMesh(conn.peer, data.name);
-                        updatePlayerCountBadge();
-                    } else {
-                        setPlayerName(otherPlayers[conn.peer], data.name);
-                    }
-                    if (isHost) {
-                        // Tell the newcomer about everyone else already in the room
-                        Object.entries(peerNames).forEach(([id, nm]) => {
-                            if (id !== conn.peer) conn.send({ type: 'helloFromHost', id: id, name: nm });
-                        });
-                        // Tell everyone else about the newcomer
-                        broadcast({ type: 'helloFromHost', id: conn.peer, name: data.name }, conn.peer);
-                    }
-                } else if (data.type === 'helloFromHost') {
-                    peerNames[data.id] = data.name;
-                    if (!otherPlayers[data.id]) {
-                        otherPlayers[data.id] = createRemotePlayerMesh(data.id, data.name);
-                        updatePlayerCountBadge();
-                    } else {
-                        setPlayerName(otherPlayers[data.id], data.name);
-                    }
-                }
-            });
-
-            conn.on('close', () => removeRemotePlayer(conn.peer));
-            conn.on('error', () => removeRemotePlayer(conn.peer));
-        }
-
-        function removeRemotePlayer(peerId) {
-            if (otherPlayers[peerId]) {
-                const pg = otherPlayers[peerId];
-                if (pg.userData.nameSprite) {
-                    pg.userData.nameSprite.material.map.dispose();
-                    pg.userData.nameSprite.material.dispose();
-                }
-                scene.remove(pg);
-                delete otherPlayers[peerId];
+            if (res.ok) {
+                const data = await res.json();
+                white.elo = data.a.elo; white.title = data.a.title;
+                black.elo = data.b.elo; black.title = data.b.title;
+                eloResult = { white: data.a, black: data.b };
             }
-            delete connections[peerId];
-            delete peerNames[peerId];
-            updatePlayerCountBadge();
+        } catch (err) {
+            console.warn('Elo report failed:', err);
         }
+    }
 
-        // Deterministic color per peer id so multiple remote players are visually distinct
-        function colorForPeerId(id) {
-            let hash = 0;
-            for (let i = 0; i < id.length; i++) {
-                hash = (hash * 31 + id.charCodeAt(i)) & 0xffffffff;
-            }
-            const hue = Math.abs(hash) % 360;
-            const color = new THREE.Color();
-            color.setHSL(hue / 360, 0.55, 0.4);
-            return color;
+    hostRoom.lastResult = { reason, winnerColor, elo: eloResult };
+    hostBroadcastRoomState();
+}
+
+function hostBroadcastRoomState() {
+    broadcast({ type: 'roomState', state: hostRoom });
+    applyRoomState(hostRoom); // host renders its own authoritative state directly
+}
+
+function applyRoomState(state) {
+    localRoomState = state;
+    // Figure out my own seat from my peer id.
+    mySeat = null;
+    if (state.seats.white && state.seats.white.peerId === myPeerId) mySeat = 'white';
+    if (state.seats.black && state.seats.black.peerId === myPeerId) mySeat = 'black';
+
+    renderSeatPrompt();
+    renderChessUI();
+}
+
+// ---------------- Sit/spectate proximity + E key ----------------
+function nearestChairPrompt() {
+    if (!gameStarted || isPaused || (mySeat) || isSpectating) return null;
+    const pos = cameraYawGroup.position;
+    const distWhite = pos.distanceTo(CHAIR_POS.white);
+    const distBlack = pos.distanceTo(CHAIR_POS.black);
+    const distTable = pos.distanceTo(TABLE_POS);
+
+    if (distWhite < SEAT_INTERACT_RADIUS && (!localRoomState || !localRoomState.seats.white)) return { action: 'sit', seat: 'white', text: 'Press E to sit (White)' };
+    if (distBlack < SEAT_INTERACT_RADIUS && (!localRoomState || !localRoomState.seats.black)) return { action: 'sit', seat: 'black', text: 'Press E to sit (Black)' };
+    if (distWhite < SEAT_INTERACT_RADIUS || distBlack < SEAT_INTERACT_RADIUS) return { action: 'none', text: 'Seat taken' };
+    if (distTable < SEAT_INTERACT_RADIUS + 1.2 && localRoomState && localRoomState.chess) return { action: 'spectate', text: 'Press E to spectate' };
+    return null;
+}
+
+function updateSeatPromptUI() {
+    const prompt = nearestChairPrompt();
+    const el = document.getElementById('seat-prompt');
+    if (prompt) { el.innerText = prompt.text; el.style.display = 'block'; }
+    else el.style.display = 'none';
+}
+
+function handleInteractKey() {
+    const prompt = nearestChairPrompt();
+    if (!prompt) return;
+    if (prompt.action === 'sit') {
+        const payload = { seat: prompt.seat };
+        if (isHost) hostTrySit(prompt.seat, { peerId: myPeerId, clientId, name: playerName, elo: myElo, title: myTitle });
+        else if (connections[Object.keys(connections)[0]]) sendToHost({ type: 'sitRequest', seat: prompt.seat });
+    } else if (prompt.action === 'spectate') {
+        isSpectating = true;
+        exitPointerLockForUI();
+        renderChessUI();
+    }
+}
+
+function sendToHost(msg) {
+    if (isHost) return; // host handles its own actions directly, never messages itself
+    const hostConn = connections[Object.keys(connections)[0]];
+    if (hostConn && hostConn.open) hostConn.send(msg);
+}
+
+function exitPointerLockForUI() {
+    if (!isTouchDevice && document.pointerLockElement) document.exitPointerLock();
+    controlsLocked = false;
+}
+
+function renderSeatPrompt() { updateSeatPromptUI(); }
+
+// ---------------- 2D chess UI ----------------
+const PIECE_GLYPH = {
+    wP: '\u2659', wN: '\u2658', wB: '\u2657', wR: '\u2656', wQ: '\u2655', wK: '\u2654',
+    bP: '\u265F', bN: '\u265E', bB: '\u265D', bR: '\u265C', bQ: '\u265B', bK: '\u265A'
+};
+
+function setupChessUI() {
+    const board = document.getElementById('chess-board');
+    for (let visRow = 0; visRow < 8; visRow++) {
+        for (let visCol = 0; visCol < 8; visCol++) {
+            const div = document.createElement('div');
+            div.className = 'sq';
+            div.dataset.visRow = visRow;
+            div.dataset.visCol = visCol;
+            div.addEventListener('click', onSquareClick);
+            board.appendChild(div);
         }
-
-        function updateRemotePlayerMesh(playerGroup, data) {
-            // Store network-received values as interpolation targets rather than snapping directly.
-            // This smooths out jitter from variable P2P latency / packet timing.
-            const ud = playerGroup.userData;
-            ud.targetPosition.set(data.x, data.y - 1.6, data.z);
-            ud.targetYaw = data.yaw;
-            ud.targetPitch = data.pitch;
-            ud.targetFlashlight = data.flashlight;
-        }
-
-        function interpolateRemotePlayers(delta) {
-            // Higher factor = snappier but less smooth; tuned for a 20Hz send rate.
-            const posLerp = Math.min(1, delta * 12);
-            const rotLerp = Math.min(1, delta * 12);
-
-            Object.values(otherPlayers).forEach((playerGroup) => {
-                const ud = playerGroup.userData;
-                if (!ud.targetPosition) return;
-
-                playerGroup.position.lerp(ud.targetPosition, posLerp);
-
-                // Shortest-path yaw interpolation to avoid spinning the long way around
-                let yawDiff = ud.targetYaw - playerGroup.rotation.y;
-                yawDiff = ((yawDiff + Math.PI) % (Math.PI * 2)) - Math.PI;
-                playerGroup.rotation.y += yawDiff * rotLerp;
-
-                if (ud.headAndHandGroup) {
-                    ud.headAndHandGroup.rotation.x +=
-                        (ud.targetPitch - ud.headAndHandGroup.rotation.x) * rotLerp;
-                }
-
-                if (ud.spotLight) ud.spotLight.visible = ud.targetFlashlight;
-                if (ud.handRig) ud.handRig.visible = ud.targetFlashlight;
-            });
-        }
-
-        function broadcast(data, excludePeerId = null) {
-            Object.keys(connections).forEach(id => {
-                if (id !== excludePeerId && connections[id].open) {
-                    connections[id].send(data);
-                }
-            });
-        }
-
-        // Chromium enforces a short cooldown (roughly 1s) on re-requesting pointer lock
-        // immediately after the user exits it via the Escape key, to guarantee Escape always
-        // works as an actual "give me my cursor back" escape hatch. A request made during that
-        // window is silently rejected. Catching the rejection and retrying once after the
-        // cooldown - while we still have "transient activation" from the original click/keydown -
-        // lets Resume work without the user having to click a second time.
-        function requestPointerLockWithRetry(retriesLeft) {
-            if (retriesLeft === undefined) retriesLeft = 1;
-            const lockResult = document.body.requestPointerLock();
-            if (lockResult && typeof lockResult.catch === 'function') {
-                lockResult.catch(() => {
-                    if (retriesLeft > 0) {
-                        setTimeout(() => requestPointerLockWithRetry(retriesLeft - 1), 1200);
-                    }
-                });
-            }
-        }
-
-        function startGame() {
-            gameStarted = true;
-            document.getElementById('instructions').style.display = 'none';
-            document.getElementById('btn-pause').style.display = 'flex';
-            if (!isTouchDevice) requestPointerLockWithRetry();
-            controlsLocked = true;
-            initAudio();
-            updatePlayerCountBadge();
-        }
-
-        function generateMaze(cols, rows) {
-            let map = Array(rows).fill().map(() => Array(cols).fill(1));
-            function carve(x, y) {
-                const dirs = [[0, -2], [0, 2], [-2, 0], [2, 0]].sort(() => 0.5 - Math.random());
-                map[y][x] = 0;
-                for (let [dx, dy] of dirs) {
-                    let nx = x + dx, ny = y + dy;
-                    if (nx > 0 && nx < cols - 1 && ny > 0 && ny < rows - 1 && map[ny][nx] === 1) {
-                        map[y + dy / 2][x + dx / 2] = 0; carve(nx, ny);
-                    }
-                }
-            }
-            carve(1, 1); map[1][1] = 0; return map;
-        }
-
-        function createWallTexture() {
-            const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 512;
-            const ctx = canvas.getContext('2d'); ctx.fillStyle = '#2a2a35'; ctx.fillRect(0, 0, 512, 512);
-            for (let i = 0; i < 30000; i++) {
-                let x = Math.random() * 512, y = Math.random() * 512, val = 40 + Math.random() * 40;
-                ctx.fillStyle = `rgb(${val},${val},${val+10})`; ctx.fillRect(x, y, 2, 2);
-            }
-            const texture = new THREE.CanvasTexture(canvas);
-            texture.wrapS = THREE.RepeatWrapping; texture.wrapT = THREE.RepeatWrapping; return texture;
-        }
-
-        function createFloorTexture() {
-            const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 512;
-            const ctx = canvas.getContext('2d'); ctx.fillStyle = '#22222a'; ctx.fillRect(0, 0, 512, 512);
-            ctx.strokeStyle = '#444455'; ctx.lineWidth = 4;
-            for(let i=0; i<=512; i+=64) {
-                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 512); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(512, i); ctx.stroke();
-            }
-            const texture = new THREE.CanvasTexture(canvas);
-            texture.wrapS = THREE.RepeatWrapping; texture.wrapT = THREE.RepeatWrapping;
-            texture.repeat.set(GRID_SIZE, GRID_SIZE); return texture;
-        }
-
-        function createSmileyFaceTexture() {
-            const canvas = document.createElement('canvas');
-            canvas.width = 512; canvas.height = 256;
-            const ctx = canvas.getContext('2d');
-
-            // Skin color background
-            ctx.fillStyle = '#c48d71';
-            ctx.fillRect(0, 0, 512, 256);
-
-            // Front face region (centered around x = 384)
-            const centerX = 384, centerY = 128;
-
-            // Eyes
-            ctx.fillStyle = '#111';
-            ctx.beginPath(); ctx.arc(centerX - 45, centerY - 25, 14, 0, Math.PI * 2); ctx.fill();
-            ctx.beginPath(); ctx.arc(centerX + 45, centerY - 25, 14, 0, Math.PI * 2); ctx.fill();
-
-            // Eye highlights
-            ctx.fillStyle = '#fff';
-            ctx.beginPath(); ctx.arc(centerX - 48, centerY - 28, 4, 0, Math.PI * 2); ctx.fill();
-            ctx.beginPath(); ctx.arc(centerX + 42, centerY - 28, 4, 0, Math.PI * 2); ctx.fill();
-
-            // Smile
-            ctx.strokeStyle = '#111';
-            ctx.lineWidth = 10;
-            ctx.lineCap = 'round';
-            ctx.beginPath();
-            ctx.arc(centerX, centerY + 10, 50, 0.15 * Math.PI, 0.85 * Math.PI, false);
-            ctx.stroke();
-
-            const texture = new THREE.CanvasTexture(canvas);
-            return texture;
-        }
-
-        function createNameTagSprite(name) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 256; canvas.height = 64;
-            const ctx = canvas.getContext('2d');
-            ctx.font = 'bold 34px "Courier New", monospace';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.lineWidth = 6;
-            ctx.strokeStyle = 'rgba(0,0,0,0.9)';
-            ctx.strokeText(name, 128, 32);
-            ctx.fillStyle = '#ff5555';
-            ctx.fillText(name, 128, 32);
-
-            const texture = new THREE.CanvasTexture(canvas);
-            const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true });
-            const sprite = new THREE.Sprite(material);
-            sprite.scale.set(1.3, 0.32, 1);
-            sprite.renderOrder = 999;
-            return sprite;
-        }
-
-        function setPlayerName(playerGroup, name) {
-            if (playerGroup.userData.playerName === name) return;
-            playerGroup.userData.playerName = name;
-            const old = playerGroup.userData.nameSprite;
-            const fresh = createNameTagSprite(name);
-            fresh.position.copy(old.position);
-            playerGroup.remove(old);
-            old.material.map.dispose();
-            old.material.dispose();
-            playerGroup.add(fresh);
-            playerGroup.userData.nameSprite = fresh;
-        }
-
-        function createRemotePlayerMesh(peerId, name) {
-            const displayName = name || '???';
-            const playerGroup = new THREE.Group();
-
-            // Body Mesh - colored per peer id so multiple remote players are distinguishable
-            const bodyColor = peerId ? colorForPeerId(peerId) : new THREE.Color(0x882222);
-            const body = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.4, 0.4, 1.4, 12),
-                new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.7 })
-            );
-            body.position.y = 0.7;
-            playerGroup.add(body);
-
-            // Group attached at head level to pitch with camera angle
-            const headAndHandGroup = new THREE.Group();
-            headAndHandGroup.position.set(0, 1.6, 0);
-            playerGroup.add(headAndHandGroup);
-
-            // Head Mesh with Smiley Face.
-            // No extra Y rotation here: the face art sits at u~0.75 on the sphere's default UV
-            // mapping, which Three.js already projects toward -z - this game's "forward" - so
-            // the face naturally looks the way the player is heading once playerGroup.rotation.y
-            // is set to their yaw.
-            const headTexture = createSmileyFaceTexture();
-            const head = new THREE.Mesh(
-                new THREE.SphereGeometry(0.3, 16, 16),
-                new THREE.MeshStandardMaterial({ map: headTexture, roughness: 0.5 })
-            );
-            headAndHandGroup.add(head);
-
-            // Remote Flashlight SpotLight (moved slightly forward: z = -0.4)
-            const spotLight = new THREE.SpotLight(0xfffaed, 6.0, 40, Math.PI / 4.5, 0.4, 1);
-            spotLight.position.set(0.2, -0.1, -0.4);
-            const lightTarget = new THREE.Object3D();
-            lightTarget.position.set(0.2, -0.1, -5);
-            headAndHandGroup.add(lightTarget);
-            spotLight.target = lightTarget;
-            headAndHandGroup.add(spotLight);
-
-            // Remote Hand & Flashlight Mesh
-            const handMesh = createHandAndFlashlightModel();
-            headAndHandGroup.add(handMesh);
-
-            // Name tag - a Sprite always faces the camera automatically, so it stays readable
-            // from any angle without extra billboard logic.
-            const nameSprite = createNameTagSprite(displayName);
-            nameSprite.position.set(0, 2.05, 0);
-            playerGroup.add(nameSprite);
-
-            playerGroup.userData = {
-                spotLight: spotLight,
-                handRig: handMesh,
-                headAndHandGroup: headAndHandGroup,
-                nameSprite: nameSprite,
-                playerName: displayName,
-                targetPosition: playerGroup.position.clone(),
-                targetYaw: 0,
-                targetPitch: 0,
-                targetFlashlight: false
-            };
-
-            scene.add(playerGroup);
-            return playerGroup;
-        }
-
-        function createHandAndFlashlightModel() {
-            const rig = new THREE.Group();
-            const skinMat = new THREE.MeshStandardMaterial({ color: 0xc48d71, roughness: 0.6 });
-            const sleeveMat = new THREE.MeshStandardMaterial({ color: 0x111622, roughness: 0.8 });
-
-            const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.35, 12), sleeveMat);
-            sleeve.rotation.x = Math.PI / 2; sleeve.position.set(0.05, -0.05, 0.1); rig.add(sleeve);
-
-            const hand = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.1), skinMat);
-            hand.position.set(0.05, -0.05, -0.08); rig.add(hand);
-
-            const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.028, 0.22, 16), new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.3, metalness: 0.8 }));
-            handle.rotation.x = Math.PI / 2; handle.position.set(0.05, -0.04, -0.12); rig.add(handle);
-
-            const head = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.03, 0.07, 16), new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.2, metalness: 0.9 }));
-            head.rotation.x = Math.PI / 2; head.position.set(0.05, -0.04, -0.24); rig.add(head);
-
-            // Nudged position slightly forward
-            rig.position.set(0.2, -0.18, -0.4);
-            return rig;
-        }
-
-        function initAudio() {
-            if (audioCtx) return;
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = audioCtx.createOscillator(), filter = audioCtx.createBiquadFilter(), droneGain = audioCtx.createGain();
-            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(40, audioCtx.currentTime);
-            filter.type = 'lowpass'; filter.frequency.setValueAtTime(140, audioCtx.currentTime);
-            droneGain.gain.setValueAtTime(0.25, audioCtx.currentTime);
-            osc.connect(filter); filter.connect(droneGain); droneGain.connect(audioCtx.destination); osc.start();
-        }
-
-        function playFootstepSound() {
-            if (!audioCtx) return;
-            const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
-            osc.type = 'triangle'; osc.frequency.setValueAtTime(110 + Math.random() * 40, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime + 0.12);
-            gain.gain.setValueAtTime(0.35, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
-            osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.12);
-        }
-
-        function playJumpSound() {
-            if (!audioCtx) return;
-            const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
-            osc.type = 'sine'; osc.frequency.setValueAtTime(120, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(380, audioCtx.currentTime + 0.3);
-            gain.gain.setValueAtTime(0.5, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
-            osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.3);
-        }
-
-        function playClickSound() {
-            if (!audioCtx) return;
-            const click = audioCtx.createOscillator(), gain = audioCtx.createGain();
-            click.type = 'square'; click.frequency.setValueAtTime(900, audioCtx.currentTime);
-            gain.gain.setValueAtTime(0.3, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.06);
-            click.connect(gain); gain.connect(audioCtx.destination); click.start(); click.stop(audioCtx.currentTime + 0.06);
-        }
-
-        function init() {
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
-            document.getElementById('canvas-container').appendChild(renderer.domElement);
-
-            scene = new THREE.Scene(); scene.background = new THREE.Color(0x0d0d14);
-            scene.fog = new THREE.FogExp2(0x0d0d14, 0.035);
-
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-
-            // Camera Rig Hierarchy
-            cameraYawGroup = new THREE.Group();
-            cameraPitchGroup = new THREE.Group();
-
-            cameraYawGroup.position.set(CELL_SIZE * 1.5, 1.6, CELL_SIZE * 1.5);
-            cameraYawGroup.add(cameraPitchGroup);
-            cameraPitchGroup.add(camera);
-            scene.add(cameraYawGroup);
-
-            scene.add(new THREE.AmbientLight(0x7788aa, 1.2));
-
-            flashlight = new THREE.SpotLight(0xfffaed, 6.0, 60, Math.PI / 4.5, 0.4, 1);
-            flashlightFill = new THREE.SpotLight(0xfff5dd, 1.5, 18, Math.PI / 2, 0.9, 1);
-
-            const lightTarget = new THREE.Object3D();
-            lightTarget.position.set(0, 0, -5);
-            cameraPitchGroup.add(lightTarget);
-
-            flashlight.target = lightTarget;
-            flashlightFill.target = lightTarget;
-
-            // Nudged flashlight position forward (z = -0.4)
-            flashlight.position.set(0.2, -0.1, -0.4);
-            flashlightFill.position.set(0.2, -0.1, -0.4);
-
-            cameraPitchGroup.add(flashlight);
-            cameraPitchGroup.add(flashlightFill);
-
-            handRig = createHandAndFlashlightModel();
-            cameraPitchGroup.add(handRig);
-
-            maze = generateMaze(GRID_SIZE, GRID_SIZE);
-            const wallMaterial = new THREE.MeshStandardMaterial({ map: createWallTexture(), roughness: 0.8, emissive: new THREE.Color(0x181825), emissiveIntensity: 0.8 });
-            const floorMaterial = new THREE.MeshStandardMaterial({ map: createFloorTexture(), roughness: 0.8, emissive: new THREE.Color(0x151522), emissiveIntensity: 0.8 });
-            const wallGeo = new THREE.BoxGeometry(CELL_SIZE, WALL_HEIGHT, CELL_SIZE);
-
-            for (let r = 0; r < GRID_SIZE; r++) {
-                for (let c = 0; c < GRID_SIZE; c++) {
-                    if (maze[r][c] === 1) {
-                        const wall = new THREE.Mesh(wallGeo, wallMaterial);
-                        wall.position.set(c * CELL_SIZE + CELL_SIZE / 2, WALL_HEIGHT / 2, r * CELL_SIZE + CELL_SIZE / 2);
-                        scene.add(wall); wallBoxes.push(new THREE.Box3().setFromObject(wall));
-                    }
-                }
-            }
-
-            const totalSize = GRID_SIZE * CELL_SIZE;
-            const floor = new THREE.Mesh(new THREE.PlaneGeometry(totalSize, totalSize), floorMaterial);
-            floor.rotation.x = -Math.PI / 2; floor.position.set(totalSize / 2, 0, totalSize / 2);
-            scene.add(floor);
-
-            initNameUI();
-            setupUI(); setupControls(); setupMobileControls(); setupPauseMenu();
-            window.addEventListener('resize', onWindowResize);
-            window.addEventListener('beforeunload', () => {
-                if (peer && !peer.destroyed) peer.destroy();
-                releaseNameBeacon();
-            });
-        }
-
-        function setupUI() {
-            const roomInput = document.getElementById('room-input');
-
-            document.getElementById('btn-host').addEventListener('click', () => {
-                roomInput.blur();
-                const code = generateRoomCode();
-                initP2P(code, true);
-            });
-
-            document.getElementById('btn-join').addEventListener('click', () => {
-                roomInput.blur();
-                const code = roomInput.value.trim().toUpperCase();
-                if (code.length === 6) {
-                    initP2P(code, false);
-                } else {
-                    alert("Please enter a valid 6-character room code.");
-                }
-            });
-
-            // Allow pressing Enter in the room code field to join
-            roomInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') document.getElementById('btn-join').click();
-            });
-
-            document.getElementById('btn-copy-code').addEventListener('click', () => {
-                if (activeRoomCode) {
-                    navigator.clipboard.writeText(activeRoomCode);
-                    const btn = document.getElementById('btn-copy-code');
-                    btn.innerText = "COPIED!";
-                    setTimeout(() => { btn.innerText = "COPY"; }, 2000);
-                }
-            });
-
-            // Re-acquire Pointer Lock on clicking the canvas
-            document.getElementById('canvas-container').addEventListener('click', () => {
-                if (gameStarted && !isTouchDevice && !controlsLocked && !isPaused) {
-                    document.body.requestPointerLock();
-                }
-            });
-        }
-
-        // ---------- Pause menu ----------
-        function setupPauseMenu() {
-            document.getElementById('btn-pause').addEventListener('click', () => {
-                if (isPaused) resumeGame(); else pauseGame();
-            });
-            document.getElementById('btn-resume').addEventListener('click', resumeGame);
-            document.getElementById('btn-leave').addEventListener('click', () => {
-                if (peer && !peer.destroyed) peer.destroy();
-                if (nameRenewTimer) clearInterval(nameRenewTimer);
-                releaseNameBeacon();
-                location.reload();
-            });
-        }
-
-        function pauseGame() {
-            if (!gameStarted || isPaused) return;
-            isPaused = true;
-            document.getElementById('pause-menu').style.display = 'flex';
-            if (!isTouchDevice && document.pointerLockElement) {
-                document.exitPointerLock();
+    }
+
+    document.getElementById('btn-stand-up').addEventListener('click', () => {
+        if (isHost) hostTryStand(myPeerId); else sendToHost({ type: 'standRequest' });
+    });
+    document.getElementById('btn-close-spectate').addEventListener('click', () => {
+        isSpectating = false;
+        renderChessUI();
+        if (!isTouchDevice) requestPointerLockWithRetry();
+        controlsLocked = true;
+    });
+    document.getElementById('btn-leave-room-chess').addEventListener('click', leaveRoom);
+
+    document.querySelectorAll('#promo-picker button').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (!pendingPromotion) return;
+            submitMove(pendingPromotion.from, pendingPromotion.to, btn.dataset.promo);
+            pendingPromotion = null;
+            document.getElementById('promo-picker').style.display = 'none';
+        });
+    });
+
+    document.getElementById('btn-gameover-ok').addEventListener('click', () => {
+        document.getElementById('gameover-banner').style.display = 'none';
+    });
+}
+
+// visRow/visCol are screen positions (0,0 = top-left of the grid as drawn). We map those to
+// actual board squares based on orientation, so White's own view has white at the bottom while
+// Black's view (and a spectator's, per design, always uses White's own orientation) differ only
+// for the seated Black player.
+function orientation() {
+    return mySeat === 'black' ? 'black' : 'white';
+}
+function visToSquare(visRow, visCol) {
+    const orient = orientation();
+    const file = orient === 'white' ? visCol : (7 - visCol);
+    const rank = orient === 'white' ? (7 - visRow) : visRow;
+    return ChessEngine.sqOf(file, rank);
+}
+function squareToVis(sq) {
+    const orient = orientation();
+    const file = ChessEngine.fileOf(sq), rank = ChessEngine.rankOf(sq);
+    const visCol = orient === 'white' ? file : (7 - file);
+    const visRow = orient === 'white' ? (7 - rank) : rank;
+    return { visRow, visCol };
+}
+
+function renderChessUI() {
+    const overlay = document.getElementById('chess-overlay');
+    const shouldShow = gameStarted && (mySeat || isSpectating) && localRoomState;
+    overlay.style.display = shouldShow ? 'flex' : 'none';
+    if (!shouldShow) return;
+
+    const state = localRoomState;
+    const white = state.seats.white, black = state.seats.black;
+    const selfInfo = mySeat === 'white' ? white : (mySeat === 'black' ? black : null);
+    const oppInfo = mySeat === 'white' ? black : (mySeat === 'black' ? white : null);
+
+    document.getElementById('self-name').innerText = selfInfo ? selfInfo.name : (isSpectating ? 'Spectating' : '');
+    document.getElementById('self-elo').innerText = selfInfo ? `(${selfInfo.elo})` : '';
+    document.getElementById('self-title').innerText = selfInfo && selfInfo.title ? `[${selfInfo.title}]` : '';
+    document.getElementById('opp-name').innerText = oppInfo ? oppInfo.name : 'Waiting for opponent...';
+    document.getElementById('opp-elo').innerText = oppInfo ? `(${oppInfo.elo})` : '';
+    document.getElementById('opp-title').innerText = oppInfo && oppInfo.title ? `[${oppInfo.title}]` : '';
+
+    if (isSpectating) {
+        document.getElementById('self-name').innerText = `White: ${white ? white.name : '???'}`;
+        document.getElementById('opp-name').innerText = `Black: ${black ? black.name : '???'}`;
+        document.getElementById('self-elo').innerText = white ? `(${white.elo})` : '';
+        document.getElementById('opp-elo').innerText = black ? `(${black.elo})` : '';
+        document.getElementById('self-title').innerText = white && white.title ? `[${white.title}]` : '';
+        document.getElementById('opp-title').innerText = black && black.title ? `[${black.title}]` : '';
+    }
+
+    document.getElementById('btn-stand-up').style.display = (mySeat && state.status !== 'ongoing') ? 'inline-block' : 'none';
+    document.getElementById('btn-close-spectate').style.display = isSpectating ? 'inline-block' : 'none';
+
+    const captured = state.captured || { w: [], b: [] };
+    const oppCapturesEl = document.getElementById('opp-captures');
+    const selfCapturesEl = document.getElementById('self-captures');
+    if (isSpectating) {
+        selfCapturesEl.innerText = captured.b.map(p => PIECE_GLYPH[p]).join(''); // white captured black pieces
+        oppCapturesEl.innerText = captured.w.map(p => PIECE_GLYPH[p]).join('');
+    } else {
+        const myColorCode = mySeat === 'white' ? 'b' : 'w'; // pieces of the opposite color I've captured
+        selfCapturesEl.innerText = captured[myColorCode].map(p => PIECE_GLYPH[p]).join('');
+        oppCapturesEl.innerText = captured[myColorCode === 'w' ? 'b' : 'w'].map(p => PIECE_GLYPH[p]).join('');
+    }
+
+    renderBoard(state);
+    renderStatusText(state);
+    renderGameOverBanner(state);
+}
+
+function renderBoard(state) {
+    const squares = document.querySelectorAll('#chess-board .sq');
+    const board = state.chess ? state.chess.board : new Array(64).fill(null);
+    const legalTargets = getLegalTargetsForSelected(state);
+
+    squares.forEach(div => {
+        const visRow = parseInt(div.dataset.visRow, 10), visCol = parseInt(div.dataset.visCol, 10);
+        const sq = visToSquare(visRow, visCol);
+        const piece = board[sq];
+        const isLight = (ChessEngine.fileOf(sq) + ChessEngine.rankOf(sq)) % 2 === 1;
+        div.className = 'sq ' + (isLight ? 'light' : 'dark');
+        div.innerHTML = piece ? `<span class="piece-${piece[0]}">${PIECE_GLYPH[piece]}</span>` : '';
+        if (selectedSquare === sq) div.classList.add('selected');
+        if (legalTargets.includes(sq)) { div.classList.add('legal'); if (piece) div.classList.add('has-piece'); }
+        if (state.lastMove && (state.lastMove.from === sq || state.lastMove.to === sq)) div.classList.add('last-move');
+    });
+}
+
+function getLegalTargetsForSelected(state) {
+    if (selectedSquare === null || !state.chess) return [];
+    const legal = ChessEngine.generateLegalMoves(state.chess);
+    return legal.filter(m => m.from === selectedSquare).map(m => m.to);
+}
+
+function onSquareClick(e) {
+    if (isSpectating || !mySeat || !localRoomState || !localRoomState.chess) return;
+    if (localRoomState.status !== 'ongoing') return;
+    const myColor = mySeat === 'white' ? 'w' : 'b';
+    if (localRoomState.chess.turn !== myColor) return;
+
+    const visRow = parseInt(e.currentTarget.dataset.visRow, 10), visCol = parseInt(e.currentTarget.dataset.visCol, 10);
+    const sq = visToSquare(visRow, visCol);
+    const board = localRoomState.chess.board;
+    const piece = board[sq];
+
+    if (selectedSquare !== null) {
+        const legal = ChessEngine.generateLegalMoves(localRoomState.chess).filter(m => m.from === selectedSquare);
+        const match = legal.find(m => m.to === sq);
+        if (match) {
+            if (match.promotion) {
+                // Any matching promotion move share the same from/to; just ask which piece.
+                pendingPromotion = { from: selectedSquare, to: sq };
+                document.getElementById('promo-picker').style.display = 'flex';
             } else {
-                controlsLocked = false;
+                submitMove(selectedSquare, sq, null);
             }
+            selectedSquare = null;
+            renderBoard(localRoomState);
+            return;
         }
+    }
 
-        function resumeGame() {
-            if (!isPaused) return;
-            isPaused = false;
+    if (piece && ChessEngine.colorOf(piece) === myColor) {
+        selectedSquare = sq;
+    } else {
+        selectedSquare = null;
+    }
+    renderBoard(localRoomState);
+}
+
+function submitMove(from, to, promotion) {
+    const move = { from, to, promotion: promotion || undefined };
+    if (isHost) hostHandleMoveRequest(myPeerId, move);
+    else sendToHost({ type: 'moveRequest', move });
+}
+
+function renderStatusText(state) {
+    const el = document.getElementById('chess-status-text');
+    if (!state.chess) { el.innerText = 'Waiting for the other seat to be taken...'; return; }
+    if (state.status === 'ongoing') {
+        const turnName = state.chess.turn === 'w' ? (state.seats.white ? state.seats.white.name : 'White') : (state.seats.black ? state.seats.black.name : 'Black');
+        const inCheck = ChessEngine.isInCheck(state.chess, state.chess.turn);
+        el.innerText = `${turnName} to move` + (inCheck ? ' - CHECK' : '');
+    } else {
+        el.innerText = '';
+    }
+}
+
+function renderGameOverBanner(state) {
+    const banner = document.getElementById('gameover-banner');
+    if (!state.lastResult || state.status === 'ongoing' || state.status === 'waiting') { return; }
+    // Only show once per result - track by reference to avoid re-popping the banner on every
+    // unrelated roomState broadcast (e.g. a spectator joining).
+    if (banner.dataset.shownFor === JSON.stringify(state.lastResult)) return;
+    banner.dataset.shownFor = JSON.stringify(state.lastResult);
+
+    const r = state.lastResult;
+    let title, detail = '';
+    if (r.reason === 'checkmate') {
+        const winnerName = r.winnerColor === 'white' ? (state.seats.white ? state.seats.white.name : 'White') : (state.seats.black ? state.seats.black.name : 'Black');
+        title = `Checkmate - ${winnerName} wins!`;
+    } else if (r.reason === 'forfeit') {
+        const winnerName = r.winnerColor === 'white' ? (state.seats.white ? state.seats.white.name : 'White') : (state.seats.black ? state.seats.black.name : 'Black');
+        title = `${winnerName} wins by forfeit`;
+    } else if (r.reason === 'stalemate') {
+        title = 'Draw by stalemate';
+    } else {
+        title = 'Draw';
+    }
+    if (r.elo) {
+        const wd = r.elo.white.delta >= 0 ? `+${r.elo.white.delta}` : r.elo.white.delta;
+        const bd = r.elo.black.delta >= 0 ? `+${r.elo.black.delta}` : r.elo.black.delta;
+        detail = `White: ${r.elo.white.elo} (${wd})  |  Black: ${r.elo.black.elo} (${bd})`;
+        if (mySeat) {
+            const mine = mySeat === 'white' ? r.elo.white : r.elo.black;
+            if (mine && (mine.title === 'GM' || mine.title === 'M')) {
+                myTitle = mine.title;
+            }
+            if (mySeat === 'white') myElo = r.elo.white.elo; else myElo = r.elo.black.elo;
+        }
+    }
+    document.getElementById('gameover-title').innerText = title;
+    document.getElementById('gameover-detail').innerText = detail;
+    banner.style.display = 'block';
+}
+
+// ---------------- Room-level UI, pause, leave ----------------
+function startGame() {
+    gameStarted = true;
+    document.getElementById('ui').style.display = 'none';
+    document.getElementById('btn-pause').style.display = 'flex';
+    if (!isTouchDevice) requestPointerLockWithRetry();
+    controlsLocked = true;
+    initAudio();
+    updatePlayerCountBadge();
+}
+
+function requestPointerLockWithRetry(retriesLeft) {
+    if (retriesLeft === undefined) retriesLeft = 1;
+    const lockResult = document.body.requestPointerLock();
+    if (lockResult && typeof lockResult.catch === 'function') {
+        lockResult.catch(() => { if (retriesLeft > 0) setTimeout(() => requestPointerLockWithRetry(retriesLeft - 1), 1200); });
+    }
+}
+
+function setupUI() {
+    const roomInput = document.getElementById('room-input');
+    const maxPlayersInput = document.getElementById('max-players-input');
+
+    document.getElementById('btn-host').addEventListener('click', () => {
+        clearRoomError();
+        maxPlayers = Math.max(2, Math.min(16, parseInt(maxPlayersInput.value, 10) || 4));
+        const code = generateRoomCode();
+        initP2P(code, true);
+    });
+
+    document.getElementById('btn-join').addEventListener('click', () => {
+        clearRoomError();
+        const code = roomInput.value.trim().toUpperCase();
+        if (code.length === 6) initP2P(code, false);
+        else showRoomError("Please enter a valid 6-character room code.");
+    });
+    roomInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('btn-join').click(); });
+
+    document.getElementById('btn-random').addEventListener('click', async () => {
+        clearRoomError();
+        setRoomBusy(true, "Finding a room...");
+        try {
+            const res = await fetch('/api/rooms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'random' }) });
+            const data = await res.json();
+            if (data.code) { initP2P(data.code, false); }
+            else { setRoomBusy(false); showRoomError("No open rooms right now - try hosting one!"); }
+        } catch (err) {
+            setRoomBusy(false); showRoomError("Couldn't reach the room service.");
+        }
+    });
+
+    document.getElementById('btn-copy-code').addEventListener('click', () => {
+        if (activeRoomCode) {
+            navigator.clipboard.writeText(activeRoomCode);
+            const btn = document.getElementById('btn-copy-code');
+            btn.innerText = "COPIED!"; setTimeout(() => { btn.innerText = "COPY"; }, 2000);
+        }
+    });
+
+    document.getElementById('canvas-container').addEventListener('click', () => {
+        if (gameStarted && !isTouchDevice && !controlsLocked && !isPaused && !mySeat && !isSpectating) document.body.requestPointerLock();
+    });
+}
+
+function setupPauseMenu() {
+    document.getElementById('btn-pause').addEventListener('click', () => { if (isPaused) resumeGame(); else pauseGame(); });
+    document.getElementById('btn-resume').addEventListener('click', resumeGame);
+    document.getElementById('btn-leave-room-pause').addEventListener('click', leaveRoom);
+}
+
+function pauseGame() {
+    if (!gameStarted || isPaused || mySeat || isSpectating) return; // chess overlay has its own Leave button
+    isPaused = true;
+    document.getElementById('pause-menu').style.display = 'flex';
+    if (!isTouchDevice && document.pointerLockElement) document.exitPointerLock(); else controlsLocked = false;
+}
+
+function resumeGame() {
+    if (!isPaused) return;
+    isPaused = false;
+    document.getElementById('pause-menu').style.display = 'none';
+    if (!isTouchDevice) requestPointerLockWithRetry(); else controlsLocked = true;
+}
+
+function leaveRoom() {
+    // Mid-game forfeit: if I'm seated and the game is ongoing, resolve it before tearing down
+    // so the elo update actually lands (a graceful path - see handleUngracefulExit for the
+    // best-effort fallback when the tab just closes instead).
+    const finish = () => {
+        if (peer && !peer.destroyed) peer.destroy();
+        if (nameRenewTimer) clearInterval(nameRenewTimer);
+        if (roomHeartbeatTimer) clearInterval(roomHeartbeatTimer);
+        releaseNameBeacon();
+        unregisterRoomBeacon();
+        location.reload();
+    };
+
+    if (mySeat && localRoomState && localRoomState.status === 'ongoing') {
+        const otherColor = mySeat === 'white' ? 'black' : 'white';
+        if (isHost) {
+            hostResolveGameEnd('forfeit', otherColor).then(() => setTimeout(finish, 400));
+        } else {
+            sendToHost({ type: 'standRequest' }); // harmless no-op mid-game; host's close-handler will detect the forfeit
+            setTimeout(finish, 250);
+        }
+        return;
+    }
+    finish();
+}
+
+// ---------------- Movement / collision / render loop (mostly unchanged from base template) ----------------
+function resolveCollisions(pos) {
+    const playerMin = new THREE.Vector3(pos.x - PLAYER_RADIUS, pos.y - 1.5, pos.z - PLAYER_RADIUS);
+    const playerMax = new THREE.Vector3(pos.x + PLAYER_RADIUS, pos.y + 0.3, pos.z + PLAYER_RADIUS);
+    const playerBox = new THREE.Box3(playerMin, playerMax);
+    for (let i = 0; i < wallBoxes.length; i++) {
+        const box = wallBoxes[i];
+        if (playerBox.intersectsBox(box)) {
+            const minX = Math.min(playerBox.max.x - box.min.x, box.max.x - playerBox.min.x);
+            const minZ = Math.min(playerBox.max.z - box.min.z, box.max.z - playerBox.min.z);
+            if (minX < minZ) pos.x += (playerBox.max.x - box.min.x < box.max.x - playerBox.min.x) ? -minX : minX;
+            else pos.z += (playerBox.max.z - box.min.z < box.max.z - playerBox.min.z) ? -minZ : minZ;
+            playerBox.min.set(pos.x - PLAYER_RADIUS, pos.y - 1.5, pos.z - PLAYER_RADIUS);
+            playerBox.max.set(pos.x + PLAYER_RADIUS, pos.y + 0.3, pos.z + PLAYER_RADIUS);
+        }
+    }
+}
+
+function setupControls() {
+    document.addEventListener('pointerlockchange', () => {
+        if (document.pointerLockElement === document.body) {
+            controlsLocked = true; isPaused = false;
             document.getElementById('pause-menu').style.display = 'none';
-            if (!isTouchDevice) {
-                requestPointerLockWithRetry();
-            } else {
-                controlsLocked = true;
+        } else if (gameStarted && !isTouchDevice && !mySeat && !isSpectating) {
+            controlsLocked = false; isPaused = true;
+            document.getElementById('pause-menu').style.display = 'flex';
+        }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!controlsLocked || isTouchDevice) return;
+        const mx = e.movementX || 0, my = e.movementY || 0;
+        if (Math.abs(mx) > 150 || Math.abs(my) > 150) return;
+        yaw -= mx * 0.002; pitch -= my * 0.002;
+        pitch = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, pitch));
+        cameraYawGroup.rotation.y = yaw; cameraPitchGroup.rotation.x = pitch;
+    }, { passive: true });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.code === 'Escape' && gameStarted) {
+            if (isPaused && !mySeat && !isSpectating) resumeGame();
+            return;
+        }
+        if (e.code === 'KeyP' && gameStarted) { toggleMusic(); return; }
+        if (e.code === 'KeyE' && gameStarted) { handleInteractKey(); return; }
+        if (!controlsLocked) return;
+        switch (e.code) {
+            case 'KeyW': moveForward = true; break;
+            case 'KeyS': moveBackward = true; break;
+            case 'KeyA': moveLeft = true; break;
+            case 'KeyD': moveRight = true; break;
+            case 'Space': if (canJump) { velocity.y += 18.0; canJump = false; } break;
+        }
+    });
+    document.addEventListener('keyup', (e) => {
+        switch (e.code) {
+            case 'KeyW': moveForward = false; break;
+            case 'KeyS': moveBackward = false; break;
+            case 'KeyA': moveLeft = false; break;
+            case 'KeyD': moveRight = false; break;
+        }
+    });
+}
+
+function setupMobileControls() {
+    const mobileOverlay = document.getElementById('mobile-controls');
+    if (isTouchDevice) mobileOverlay.style.display = 'block';
+    const container = document.getElementById('joystick-container');
+    const knob = document.getElementById('joystick-knob');
+    let joystickTouchId = null;
+
+    container.addEventListener('touchstart', (e) => { e.preventDefault(); joystickTouchId = e.changedTouches[0].identifier; }, { passive: false });
+
+    window.addEventListener('touchmove', (e) => {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const touch = e.changedTouches[i];
+            if (touch.identifier === joystickTouchId) {
+                const rect = container.getBoundingClientRect();
+                const dx = touch.clientX - (rect.left + rect.width / 2), dy = touch.clientY - (rect.top + rect.height / 2);
+                const dist = Math.min(Math.hypot(dx, dy), 40), angle = Math.atan2(dy, dx);
+                const moveX = Math.cos(angle) * dist, moveY = Math.sin(angle) * dist;
+                knob.style.transform = `translate(${moveX}px, ${moveY}px)`;
+                joystickInput.x = moveX / 40; joystickInput.y = moveY / 40;
+            } else if (touch.identifier === cameraTouchId) {
+                const dx = (touch.clientX - lastTouchX), dy = (touch.clientY - lastTouchY);
+                if (Math.abs(dx) < 150 && Math.abs(dy) < 150) {
+                    yaw -= dx * 0.005; pitch -= dy * 0.005;
+                    pitch = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, pitch));
+                    cameraYawGroup.rotation.y = yaw; cameraPitchGroup.rotation.x = pitch;
+                }
+                lastTouchX = touch.clientX; lastTouchY = touch.clientY;
             }
         }
+    }, { passive: true });
 
-        function resolveCollisions(pos) {
-            const playerMin = new THREE.Vector3(pos.x - PLAYER_RADIUS, pos.y - 1.5, pos.z - PLAYER_RADIUS);
-            const playerMax = new THREE.Vector3(pos.x + PLAYER_RADIUS, pos.y + 0.3, pos.z + PLAYER_RADIUS);
-            const playerBox = new THREE.Box3(playerMin, playerMax);
+    window.addEventListener('touchend', (e) => {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const touch = e.changedTouches[i];
+            if (touch.identifier === joystickTouchId) { joystickTouchId = null; knob.style.transform = 'translate(0px, 0px)'; joystickInput = { x: 0, y: 0 }; }
+            else if (touch.identifier === cameraTouchId) cameraTouchId = null;
+        }
+    });
 
-            for (let i = 0; i < wallBoxes.length; i++) {
-                const box = wallBoxes[i];
-                if (playerBox.intersectsBox(box)) {
-                    const minX = Math.min(playerBox.max.x - box.min.x, box.max.x - playerBox.min.x);
-                    const minZ = Math.min(playerBox.max.z - box.min.z, box.max.z - playerBox.min.z);
-                    if (minX < minZ) {
-                        pos.x += (playerBox.max.x - box.min.x < box.max.x - playerBox.min.x) ? -minX : minX;
-                    } else {
-                        pos.z += (playerBox.max.z - box.min.z < box.max.z - playerBox.min.z) ? -minZ : minZ;
-                    }
-                    playerBox.min.set(pos.x - PLAYER_RADIUS, pos.y - 1.5, pos.z - PLAYER_RADIUS);
-                    playerBox.max.set(pos.x + PLAYER_RADIUS, pos.y + 0.3, pos.z + PLAYER_RADIUS);
-                }
-            }
+    window.addEventListener('touchstart', (e) => {
+        if (!controlsLocked) return;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const touch = e.changedTouches[i];
+            if (touch.clientX > window.innerWidth / 2 && cameraTouchId === null) { cameraTouchId = touch.identifier; lastTouchX = touch.clientX; lastTouchY = touch.clientY; }
+        }
+    }, { passive: true });
+
+    document.getElementById('btn-sit-mobile').addEventListener('touchstart', (e) => { e.preventDefault(); handleInteractKey(); }, { passive: false });
+    document.getElementById('btn-music-mobile').addEventListener('touchstart', (e) => { e.preventDefault(); toggleMusic(); }, { passive: false });
+}
+
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    const time = performance.now();
+    const delta = Math.min((time - prevTime) / 1000, 0.1);
+
+    if (controlsLocked && !mySeat && !isSpectating) {
+        velocity.x -= velocity.x * 10.0 * delta; velocity.z -= velocity.z * 10.0 * delta;
+        velocity.y -= 9.8 * 18.0 * delta;
+        let forwardInput = Number(moveForward) - Number(moveBackward);
+        let sideInput = Number(moveRight) - Number(moveLeft);
+        if (isTouchDevice) {
+            if (Math.abs(joystickInput.y) > 0.1) forwardInput = -joystickInput.y;
+            if (Math.abs(joystickInput.x) > 0.1) sideInput = joystickInput.x;
+        }
+        const speed = 30.0;
+        velocity.z -= forwardInput * speed * delta; velocity.x -= sideInput * speed * delta;
+        const forwardVector = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+        const sideVector = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+        cameraYawGroup.position.addScaledVector(sideVector, -velocity.x * delta);
+        cameraYawGroup.position.addScaledVector(forwardVector, -velocity.z * delta);
+        resolveCollisions(cameraYawGroup.position);
+        cameraYawGroup.position.y += velocity.y * delta;
+        if (cameraYawGroup.position.y < 1.6) { velocity.y = 0; cameraYawGroup.position.y = 1.6; canJump = true; }
+
+        broadcastAccumulator += delta;
+        if (broadcastAccumulator >= BROADCAST_INTERVAL) {
+            broadcastAccumulator = 0;
+            const msg = { type: 'update', x: cameraYawGroup.position.x, y: cameraYawGroup.position.y, z: cameraYawGroup.position.z, yaw: yaw, pitch: pitch };
+            if (isHost) broadcast(msg); else sendToHostRaw(msg);
         }
 
-        function toggleFlashlight() {
-            playClickSound();
-            const state = !flashlight.visible;
-            flashlight.visible = state; flashlightFill.visible = state; handRig.visible = state;
+        const isMoving = (forwardInput !== 0 || sideInput !== 0) && canJump;
+        if (isMoving) {
+            walkCycle += delta * 9.0;
+            stepTimer += delta;
+            if (stepTimer > 0.4) { playFootstepSound(); stepTimer = 0; }
         }
 
-        function setupControls() {
-            document.addEventListener('pointerlockchange', () => {
-                if (document.pointerLockElement === document.body) {
-                    controlsLocked = true;
-                    isPaused = false;
-                    document.getElementById('pause-menu').style.display = 'none';
-                } else if (gameStarted && !isTouchDevice) {
-                    controlsLocked = false;
-                    isPaused = true;
-                    document.getElementById('pause-menu').style.display = 'flex';
-                }
-            });
+        updateSeatPromptUI();
+    }
 
-            window.addEventListener('mousemove', (e) => {
-                if (!controlsLocked || isTouchDevice) return;
+    interpolateRemotePlayers(delta);
+    prevTime = time; renderer.render(scene, camera);
+}
 
-                const mx = e.movementX || 0;
-                const my = e.movementY || 0;
+function sendToHostRaw(msg) {
+    const hostConn = connections[Object.keys(connections)[0]];
+    if (hostConn && hostConn.open) hostConn.send(msg);
+}
 
-                if (Math.abs(mx) > 150 || Math.abs(my) > 150) return;
-
-                yaw -= mx * 0.002;
-                pitch -= my * 0.002;
-                pitch = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, pitch));
-
-                cameraYawGroup.rotation.y = yaw;
-                cameraPitchGroup.rotation.x = pitch;
-            }, { passive: true });
-
-            // Escape is handled separately from the movement-key listener below because that
-            // listener bails out early when controls aren't locked - exactly the state we're in
-            // once paused, which is when we need Escape to resume.
-            document.addEventListener('keydown', (e) => {
-                if (e.code !== 'Escape' || !gameStarted) return;
-                if (isPaused) resumeGame();
-                // If not yet paused, the browser's own Escape handling exits pointer lock on its
-                // own, which fires 'pointerlockchange' above and opens the pause menu for us.
-            });
-
-            document.addEventListener('keydown', (e) => {
-                if (!controlsLocked) return;
-                switch (e.code) {
-                    case 'KeyW': moveForward = true; break;
-                    case 'KeyS': moveBackward = true; break;
-                    case 'KeyA': moveLeft = true; break;
-                    case 'KeyD': moveRight = true; break;
-                    case 'Space': if (canJump) { velocity.y += 18.0; canJump = false; playJumpSound(); } break;
-                    case 'KeyF': if (!e.repeat) toggleFlashlight(); break;
-                }
-            });
-
-            document.addEventListener('keyup', (e) => {
-                switch (e.code) {
-                    case 'KeyW': moveForward = false; break;
-                    case 'KeyS': moveBackward = false; break;
-                    case 'KeyA': moveLeft = false; break;
-                    case 'KeyD': moveRight = false; break;
-                }
-            });
-        }
-
-        function setupMobileControls() {
-            const mobileOverlay = document.getElementById('mobile-controls');
-            if (isTouchDevice) mobileOverlay.style.display = 'block';
-
-            const container = document.getElementById('joystick-container');
-            const knob = document.getElementById('joystick-knob');
-            let joystickTouchId = null;
-
-            container.addEventListener('touchstart', (e) => {
-                e.preventDefault(); joystickTouchId = e.changedTouches[0].identifier;
-            }, { passive: false });
-
-            window.addEventListener('touchmove', (e) => {
-                for (let i = 0; i < e.changedTouches.length; i++) {
-                    const touch = e.changedTouches[i];
-                    if (touch.identifier === joystickTouchId) {
-                        const rect = container.getBoundingClientRect();
-                        const dx = touch.clientX - (rect.left + rect.width / 2);
-                        const dy = touch.clientY - (rect.top + rect.height / 2);
-                        const dist = Math.min(Math.hypot(dx, dy), 40);
-                        const angle = Math.atan2(dy, dx);
-                        const moveX = Math.cos(angle) * dist, moveY = Math.sin(angle) * dist;
-
-                        knob.style.transform = `translate(${moveX}px, ${moveY}px)`;
-                        joystickInput.x = moveX / 40; joystickInput.y = moveY / 40;
-                    } else if (touch.identifier === cameraTouchId) {
-                        const dx = (touch.clientX - lastTouchX);
-                        const dy = (touch.clientY - lastTouchY);
-
-                        if (Math.abs(dx) < 150 && Math.abs(dy) < 150) {
-                            yaw -= dx * 0.005;
-                            pitch -= dy * 0.005;
-                            pitch = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, pitch));
-
-                            cameraYawGroup.rotation.y = yaw;
-                            cameraPitchGroup.rotation.x = pitch;
-                        }
-
-                        lastTouchX = touch.clientX; lastTouchY = touch.clientY;
-                    }
-                }
-            }, { passive: true });
-
-            window.addEventListener('touchend', (e) => {
-                for (let i = 0; i < e.changedTouches.length; i++) {
-                    const touch = e.changedTouches[i];
-                    if (touch.identifier === joystickTouchId) {
-                        joystickTouchId = null; knob.style.transform = 'translate(0px, 0px)'; joystickInput = { x: 0, y: 0 };
-                    } else if (touch.identifier === cameraTouchId) cameraTouchId = null;
-                }
-            });
-
-            window.addEventListener('touchstart', (e) => {
-                if (!controlsLocked) return;
-                for (let i = 0; i < e.changedTouches.length; i++) {
-                    const touch = e.changedTouches[i];
-                    if (touch.clientX > window.innerWidth / 2 && cameraTouchId === null) {
-                        cameraTouchId = touch.identifier; lastTouchX = touch.clientX; lastTouchY = touch.clientY;
-                    }
-                }
-            }, { passive: true });
-
-            document.getElementById('btn-jump').addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                if (canJump) { velocity.y += 18.0; canJump = false; playJumpSound(); }
-            }, { passive: false });
-
-            document.getElementById('btn-flash').addEventListener('touchstart', (e) => {
-                e.preventDefault(); toggleFlashlight();
-            }, { passive: false });
-        }
-
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-
-        function animate() {
-            requestAnimationFrame(animate);
-            const time = performance.now();
-            const delta = Math.min((time - prevTime) / 1000, 0.1);
-
-            if (controlsLocked) {
-                velocity.x -= velocity.x * 10.0 * delta; velocity.z -= velocity.z * 10.0 * delta;
-                velocity.y -= 9.8 * 18.0 * delta;
-
-                let forwardInput = Number(moveForward) - Number(moveBackward);
-                let sideInput = Number(moveRight) - Number(moveLeft);
-
-                if (isTouchDevice) {
-                    if (Math.abs(joystickInput.y) > 0.1) forwardInput = -joystickInput.y;
-                    if (Math.abs(joystickInput.x) > 0.1) sideInput = joystickInput.x;
-                }
-
-                const speed = 42.0;
-                velocity.z -= forwardInput * speed * delta; velocity.x -= sideInput * speed * delta;
-
-                const forwardVector = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
-                const sideVector = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
-
-                cameraYawGroup.position.addScaledVector(sideVector, -velocity.x * delta);
-                cameraYawGroup.position.addScaledVector(forwardVector, -velocity.z * delta);
-
-                resolveCollisions(cameraYawGroup.position);
-
-                cameraYawGroup.position.y += velocity.y * delta;
-                if (cameraYawGroup.position.y < 1.6) { velocity.y = 0; cameraYawGroup.position.y = 1.6; canJump = true; }
-
-                // Throttle outgoing network updates instead of sending every render frame.
-                broadcastAccumulator += delta;
-                if (broadcastAccumulator >= BROADCAST_INTERVAL) {
-                    broadcastAccumulator = 0;
-                    broadcast({
-                        type: 'update',
-                        x: cameraYawGroup.position.x, y: cameraYawGroup.position.y, z: cameraYawGroup.position.z,
-                        yaw: yaw, pitch: pitch, flashlight: flashlight.visible
-                    });
-                }
-
-                const isMoving = (forwardInput !== 0 || sideInput !== 0) && canJump;
-                if (isMoving) {
-                    walkCycle += delta * 9.0;
-                    handRig.position.x = 0.2 + Math.sin(walkCycle) * 0.035;
-                    handRig.position.y = -0.18 + Math.cos(walkCycle * 2) * 0.02;
-                    stepTimer += delta;
-                    if (stepTimer > 0.35) { playFootstepSound(); stepTimer = 0; }
-                } else {
-                    handRig.position.x += (0.2 - handRig.position.x) * 0.1;
-                    handRig.position.y = -0.18 + Math.sin(time * 0.002) * 0.005;
-                }
-            }
-
-            interpolateRemotePlayers(delta);
-
-            prevTime = time; renderer.render(scene, camera);
-        }
-
-        init(); animate();
-    </script>
+init(); animate();
+</script>
 </body>
 </html>
