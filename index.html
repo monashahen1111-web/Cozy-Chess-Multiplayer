@@ -1135,14 +1135,14 @@ function updateSeatPromptUI() {
 function handleInteractKey() {
     const prompt = nearestChairPrompt();
     if (!prompt) return;
+    // Unlock first, unconditionally - so a problem in the sit/spectate request itself can
+    // never leave the player stuck with a captured cursor.
+    exitPointerLockForUI();
     if (prompt.action === 'sit') {
-        const payload = { seat: prompt.seat };
         if (isHost) hostTrySit(prompt.seat, { peerId: myPeerId, clientId, name: playerName, elo: myElo, title: myTitle });
         else if (connections[Object.keys(connections)[0]]) sendToHost({ type: 'sitRequest', seat: prompt.seat });
-        exitPointerLockForUI();
     } else if (prompt.action === 'spectate') {
         isSpectating = true;
-        exitPointerLockForUI();
         renderChessUI();
     }
 }
