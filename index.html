@@ -204,6 +204,20 @@
         }
         #gameover-banner h3 { color: #ffd700; margin: 0 0 6px 0; }
         #gameover-banner button { margin-top: 8px; }
+
+        #music-hint {
+            position: absolute; bottom: 15px; left: 15px;
+            background: rgba(30, 20, 10, 0.75); border: 1px solid #6a4a2a;
+            border-radius: 6px; padding: 6px 10px; color: #d8c3a5;
+            font-size: 11px; letter-spacing: 0.5px; z-index: 190; display: none;
+            pointer-events: none;
+        }
+
+        .sq.piece-dragging .piece-w, .sq.piece-dragging .piece-b { opacity: 0.3; }
+        #drag-ghost {
+            position: fixed; pointer-events: none; z-index: 9999;
+            font-size: 34px; transform: translate(-50%, -50%);
+        }
     </style>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -222,6 +236,7 @@
     <div id="player-count">PLAYERS: 1</div>
     <div id="btn-pause">&#9776;</div>
     <div id="seat-prompt"></div>
+    <div id="music-hint">Press P to mute music</div>
 
     <div id="pause-menu">
         <div class="panel-box">
@@ -362,6 +377,8 @@ let mySeat = null;         // 'white' | 'black' | null
 let isSpectating = false;
 let selectedSquare = null;
 let pendingPromotion = null; // {from,to} awaiting a promotion choice from the UI
+let dragFromSq = null;       // square index currently being dragged from, or null
+let dragGhostEl = null;      // the floating piece glyph that follows the cursor while dragging
 
 const CHAIR_POS = {
     white: new THREE.Vector3(0, 0, 2.2),
@@ -395,6 +412,13 @@ function displayRoomCodeBadge(code) {
     activeRoomCode = code;
     document.getElementById('current-room-code').innerText = code;
     document.getElementById('room-badge').style.display = 'flex';
+}
+
+function copyRoomCode() {
+    if (!activeRoomCode) return;
+    navigator.clipboard.writeText(activeRoomCode);
+    const btn = document.getElementById('btn-copy-code');
+    btn.innerText = "COPIED!"; setTimeout(() => { btn.innerText = "COPY"; }, 2000);
 }
 
 function updatePlayerCountBadge() {
@@ -815,45 +839,90 @@ function initAudio() {
     startCozyMusic();
 }
 
+const MUSIC_VOLUME = 0.16;
+
 function startCozyMusic() {
     if (!audioCtx || musicNodes) return;
     const master = audioCtx.createGain();
-    master.gain.setValueAtTime(musicMuted ? 0 : 0.18, audioCtx.currentTime);
-    master.connect(audioCtx.destination);
+    master.gain.setValueAtTime(musicMuted ? 0 : MUSIC_VOLUME, audioCtx.currentTime);
 
-    // A gentle looping arpeggio over a warm chord (all synthesized - no external audio files).
-    const notes = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63]; // C4 E4 G4 C5 G4 E4
-    let step = 0;
-    const intervalId = setInterval(() => {
-        if (!audioCtx) return;
-        const freq = notes[step % notes.length];
-        step++;
+    // A gentle lowpass keeps every note soft and rounded instead of thin and piercing.
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(1800, audioCtx.currentTime);
+    filter.Q.setValueAtTime(0.3, audioCtx.currentTime);
+    master.connect(filter);
+    filter.connect(audioCtx.destination);
+
+    // A slow, semi-randomized melody over a warm pentatonic-ish scale. Instead of looping
+    // a fixed 6-note phrase every 650ms (which is what made the old version feel like a
+    // ringtone), each note is chosen as a small, mostly-stepwise wander from the last one,
+    // held for a long, softly-faded duration, with a random gap before the next note. That
+    // keeps it melodic without ever repeating in an obvious, fatiguing loop.
+    const scale = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.26]; // C D E G A C5 D5 E5
+    let lastIndex = 2;
+    let melodyTimeoutId = null;
+    let stopped = false;
+
+    function scheduleNextNote() {
+        if (stopped || !audioCtx) return;
+        let step = Math.floor(Math.random() * 5) - 2; // -2..2 scale steps: small, singable jumps
+        let index = Math.max(0, Math.min(scale.length - 1, lastIndex + step));
+        if (index === lastIndex) index = (index + 1) % scale.length;
+        lastIndex = index;
+        const freq = scale[index];
+
         const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
+        const noteGain = audioCtx.createGain();
         osc.type = 'sine';
         osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0, audioCtx.currentTime);
-        gain.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.15);
-        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.1);
-        osc.connect(gain); gain.connect(master);
-        osc.start(); osc.stop(audioCtx.currentTime + 1.2);
-    }, 650);
 
-    // Soft sustained pad underneath.
-    const pad = audioCtx.createOscillator();
-    const padGain = audioCtx.createGain();
-    pad.type = 'triangle'; pad.frequency.setValueAtTime(130.81, audioCtx.currentTime); // C3
-    padGain.gain.setValueAtTime(0.06, audioCtx.currentTime);
-    pad.connect(padGain); padGain.connect(master); pad.start();
+        const dur = 1.6 + Math.random() * 1.4;   // long, unhurried notes
+        const peak = 0.13 + Math.random() * 0.07;
+        noteGain.gain.setValueAtTime(0, audioCtx.currentTime);
+        noteGain.gain.linearRampToValueAtTime(peak, audioCtx.currentTime + 0.6);
+        noteGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + dur);
 
-    musicNodes = { master, intervalId, pad };
+        osc.connect(noteGain); noteGain.connect(master);
+        osc.start(); osc.stop(audioCtx.currentTime + dur + 0.1);
+
+        const nextDelay = 1400 + Math.random() * 1800; // unpredictable pacing, never a tight loop
+        melodyTimeoutId = setTimeout(scheduleNextNote, nextDelay);
+    }
+    scheduleNextNote();
+
+    // Two gently detuned sustained pads underneath for warmth and depth.
+    const pad1 = audioCtx.createOscillator(), pad1Gain = audioCtx.createGain();
+    pad1.type = 'triangle'; pad1.frequency.setValueAtTime(130.81, audioCtx.currentTime); // C3
+    pad1Gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+    pad1.connect(pad1Gain); pad1Gain.connect(master); pad1.start();
+
+    const pad2 = audioCtx.createOscillator(), pad2Gain = audioCtx.createGain();
+    pad2.type = 'triangle'; pad2.frequency.setValueAtTime(196.00, audioCtx.currentTime); // G3
+    pad2.detune.setValueAtTime(4, audioCtx.currentTime);
+    pad2Gain.gain.setValueAtTime(0.035, audioCtx.currentTime);
+    pad2.connect(pad2Gain); pad2Gain.connect(master); pad2.start();
+
+    // A very slow LFO sweeping the filter cutoff so the pad breathes instead of sitting
+    // perfectly static underneath the melody.
+    const lfo = audioCtx.createOscillator(), lfoGain = audioCtx.createGain();
+    lfo.type = 'sine'; lfo.frequency.setValueAtTime(0.05, audioCtx.currentTime);
+    lfoGain.gain.setValueAtTime(400, audioCtx.currentTime);
+    lfo.connect(lfoGain); lfoGain.connect(filter.frequency); lfo.start();
+
+    musicNodes = {
+        master, filter, pad1, pad2, lfo,
+        stop: () => { stopped = true; if (melodyTimeoutId) clearTimeout(melodyTimeoutId); }
+    };
 }
 
 function toggleMusic() {
     musicMuted = !musicMuted;
     if (musicNodes && audioCtx) {
-        musicNodes.master.gain.linearRampToValueAtTime(musicMuted ? 0 : 0.18, audioCtx.currentTime + 0.2);
+        musicNodes.master.gain.linearRampToValueAtTime(musicMuted ? 0 : MUSIC_VOLUME, audioCtx.currentTime + 0.2);
     }
+    const hint = document.getElementById('music-hint');
+    if (hint) hint.innerText = musicMuted ? 'Press P to unmute music' : 'Press P to mute music';
 }
 
 function playClickSound() {
@@ -1174,13 +1243,21 @@ function setupChessUI() {
             div.className = 'sq';
             div.dataset.visRow = visRow;
             div.dataset.visCol = visCol;
-            div.addEventListener('click', onSquareClick);
+            div.addEventListener('pointerdown', onSquarePointerDown);
             board.appendChild(div);
         }
     }
+    window.addEventListener('pointermove', onBoardPointerMove);
+    window.addEventListener('pointerup', onBoardPointerUp);
+    window.addEventListener('pointercancel', onBoardPointerUp);
 
     document.getElementById('btn-stand-up').addEventListener('click', () => {
         if (isHost) hostTryStand(myPeerId); else sendToHost({ type: 'standRequest' });
+        // Standing up always succeeds here (the button is only shown once the game has
+        // ended), so re-lock the mouse right away instead of leaving the player stuck
+        // with a free cursor they'd otherwise have to click to recapture.
+        if (!isTouchDevice) requestPointerLockWithRetry();
+        controlsLocked = true;
     });
     document.getElementById('btn-close-spectate').addEventListener('click', () => {
         isSpectating = false;
@@ -1296,23 +1373,45 @@ function getLegalTargetsForSelected(state) {
     return legal.filter(m => m.from === selectedSquare).map(m => m.to);
 }
 
-function onSquareClick(e) {
+function squareElFromPoint(x, y) {
+    const el = document.elementFromPoint(x, y);
+    return el ? el.closest('.sq') : null;
+}
+
+function createDragGhost(glyph, colorCode, x, y) {
+    const ghost = document.createElement('div');
+    ghost.id = 'drag-ghost';
+    ghost.className = 'piece-' + colorCode;
+    ghost.innerText = glyph;
+    ghost.style.left = x + 'px';
+    ghost.style.top = y + 'px';
+    document.body.appendChild(ghost);
+    return ghost;
+}
+
+// Handles both tap-to-move (pointerdown on a piece, then pointerdown on a target square)
+// and drag-and-drop (pointerdown on a piece, drag while held, release over the target
+// square) through a single pointer lifecycle, so they never fight each other.
+function onSquarePointerDown(e) {
     if (isSpectating || !mySeat || !localRoomState || !localRoomState.chess) return;
     if (localRoomState.status !== 'ongoing') return;
     const myColor = mySeat === 'white' ? 'w' : 'b';
     if (localRoomState.chess.turn !== myColor) return;
 
-    const visRow = parseInt(e.currentTarget.dataset.visRow, 10), visCol = parseInt(e.currentTarget.dataset.visCol, 10);
+    const div = e.currentTarget;
+    const visRow = parseInt(div.dataset.visRow, 10), visCol = parseInt(div.dataset.visCol, 10);
     const sq = visToSquare(visRow, visCol);
     const board = localRoomState.chess.board;
     const piece = board[sq];
 
+    // Second tap (or drag-start) onto a square that's a legal target of the already
+    // selected piece - execute the move immediately.
     if (selectedSquare !== null) {
         const legal = ChessEngine.generateLegalMoves(localRoomState.chess).filter(m => m.from === selectedSquare);
         const match = legal.find(m => m.to === sq);
         if (match) {
+            e.preventDefault();
             if (match.promotion) {
-                // Any matching promotion move share the same from/to; just ask which piece.
                 pendingPromotion = { from: selectedSquare, to: sq };
                 document.getElementById('promo-picker').style.display = 'flex';
             } else {
@@ -1325,11 +1424,55 @@ function onSquareClick(e) {
     }
 
     if (piece && ChessEngine.colorOf(piece) === myColor) {
+        e.preventDefault();
         selectedSquare = sq;
+        dragFromSq = sq;
+        renderBoard(localRoomState);
+        dragGhostEl = createDragGhost(PIECE_GLYPH[piece], piece[0], e.clientX, e.clientY);
+        div.classList.add('piece-dragging');
+        try { div.setPointerCapture(e.pointerId); } catch (err) { /* not critical */ }
     } else {
         selectedSquare = null;
+        renderBoard(localRoomState);
     }
-    renderBoard(localRoomState);
+}
+
+function onBoardPointerMove(e) {
+    if (!dragGhostEl) return;
+    dragGhostEl.style.left = e.clientX + 'px';
+    dragGhostEl.style.top = e.clientY + 'px';
+}
+
+function onBoardPointerUp(e) {
+    if (dragFromSq === null) return;
+    const fromSq = dragFromSq;
+    const targetSqEl = squareElFromPoint(e.clientX, e.clientY);
+
+    if (dragGhostEl) { dragGhostEl.remove(); dragGhostEl = null; }
+    document.querySelectorAll('#chess-board .sq.piece-dragging').forEach(el => el.classList.remove('piece-dragging'));
+    dragFromSq = null;
+
+    if (targetSqEl && localRoomState && localRoomState.chess) {
+        const visRow = parseInt(targetSqEl.dataset.visRow, 10), visCol = parseInt(targetSqEl.dataset.visCol, 10);
+        const targetSq = visToSquare(visRow, visCol);
+        if (targetSq !== fromSq) {
+            const legal = ChessEngine.generateLegalMoves(localRoomState.chess).filter(m => m.from === fromSq);
+            const match = legal.find(m => m.to === targetSq);
+            if (match) {
+                if (match.promotion) {
+                    pendingPromotion = { from: fromSq, to: targetSq };
+                    document.getElementById('promo-picker').style.display = 'flex';
+                } else {
+                    submitMove(fromSq, targetSq, null);
+                }
+                selectedSquare = null;
+            }
+            // A drop on an illegal square just cancels the drag; selectedSquare stays set
+            // so the piece remains highlighted for a follow-up tap-to-move.
+        }
+    }
+
+    if (localRoomState) renderBoard(localRoomState);
 }
 
 function submitMove(from, to, promotion) {
@@ -1397,6 +1540,7 @@ function startGame() {
     controlsLocked = true;
     initAudio();
     updatePlayerCountBadge();
+    if (!isTouchDevice) document.getElementById('music-hint').style.display = 'block';
 }
 
 function requestPointerLockWithRetry(retriesLeft) {
@@ -1439,13 +1583,7 @@ function setupUI() {
         }
     });
 
-    document.getElementById('btn-copy-code').addEventListener('click', () => {
-        if (activeRoomCode) {
-            navigator.clipboard.writeText(activeRoomCode);
-            const btn = document.getElementById('btn-copy-code');
-            btn.innerText = "COPIED!"; setTimeout(() => { btn.innerText = "COPY"; }, 2000);
-        }
-    });
+    document.getElementById('btn-copy-code').addEventListener('click', copyRoomCode);
 
     document.getElementById('canvas-container').addEventListener('click', () => {
         if (gameStarted && !isTouchDevice && !controlsLocked && !isPaused && !mySeat && !isSpectating) document.body.requestPointerLock();
@@ -1543,6 +1681,7 @@ function setupControls() {
         }
         if (e.code === 'KeyP' && gameStarted) { toggleMusic(); return; }
         if (e.code === 'KeyE' && gameStarted) { handleInteractKey(); return; }
+        if (e.code === 'KeyH' && activeRoomCode) { copyRoomCode(); return; }
         if (!controlsLocked) return;
         switch (e.code) {
             case 'KeyW': moveForward = true; break;
