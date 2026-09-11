@@ -165,7 +165,10 @@
             width: 480px; height: 480px; max-width: 90vw; max-height: 90vw;
             border: 3px solid #5a3a1a; margin: 6px 0;
         }
-        .sq { display: flex; align-items: center; justify-content: center; font-size: 34px; position: relative; cursor: pointer; }
+        .sq {
+            display: flex; align-items: center; justify-content: center; font-size: 34px; position: relative; cursor: pointer;
+            touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
+        }
         .sq.light { background: #e8d3ab; }
         .sq.dark { background: #a97a4a; }
         .sq.selected { outline: 3px solid #f0c97a; outline-offset: -3px; }
@@ -218,6 +221,19 @@
             position: fixed; pointer-events: none; z-index: 9999;
             font-size: 34px; transform: translate(-50%, -50%);
         }
+
+        @media (max-width: 520px) {
+            .sq { font-size: 26px; }
+            #drag-ghost { font-size: 26px; }
+            .chess-player-row { font-size: 12px; }
+            .chess-player-row .elo { font-size: 10px; }
+            #chess-status-text { font-size: 12px; }
+            #chess-panel { padding: 10px 12px; }
+            #gameover-banner { padding: 12px 16px; }
+            #gameover-title, #gameover-detail { font-size: 13px; }
+        }
+
+        #gameover-banner { max-width: 90vw; box-sizing: border-box; }
     </style>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -379,6 +395,8 @@ let selectedSquare = null;
 let pendingPromotion = null; // {from,to} awaiting a promotion choice from the UI
 let dragFromSq = null;       // square index currently being dragged from, or null
 let dragGhostEl = null;      // the floating piece glyph that follows the cursor while dragging
+let dragPointerId = null;    // pointerId of the finger/mouse currently dragging, so we ignore others
+let dragIsTouch = false;     // true while the active drag came from a touch pointer
 
 const CHAIR_POS = {
     white: new THREE.Vector3(0, 0, 2.2),
@@ -1378,23 +1396,29 @@ function squareElFromPoint(x, y) {
     return el ? el.closest('.sq') : null;
 }
 
-function createDragGhost(glyph, colorCode, x, y) {
+// On touch, a finger covers the piece it's dragging, so the ghost is lifted above the
+// fingertip; a mouse cursor doesn't have that problem, so it tracks exactly under it.
+const TOUCH_DRAG_LIFT_PX = 55;
+
+function createDragGhost(glyph, colorCode, x, y, isTouch) {
     const ghost = document.createElement('div');
     ghost.id = 'drag-ghost';
     ghost.className = 'piece-' + colorCode;
     ghost.innerText = glyph;
     ghost.style.left = x + 'px';
-    ghost.style.top = y + 'px';
+    ghost.style.top = (isTouch ? y - TOUCH_DRAG_LIFT_PX : y) + 'px';
     document.body.appendChild(ghost);
     return ghost;
 }
 
 // Handles both tap-to-move (pointerdown on a piece, then pointerdown on a target square)
 // and drag-and-drop (pointerdown on a piece, drag while held, release over the target
-// square) through a single pointer lifecycle, so they never fight each other.
+// square) through a single pointer lifecycle, so mouse and touch share the same code path
+// and never fight each other.
 function onSquarePointerDown(e) {
     if (isSpectating || !mySeat || !localRoomState || !localRoomState.chess) return;
     if (localRoomState.status !== 'ongoing') return;
+    if (dragFromSq !== null) return; // a drag is already in progress (e.g. a second finger)
     const myColor = mySeat === 'white' ? 'w' : 'b';
     if (localRoomState.chess.turn !== myColor) return;
 
@@ -1427,8 +1451,10 @@ function onSquarePointerDown(e) {
         e.preventDefault();
         selectedSquare = sq;
         dragFromSq = sq;
+        dragPointerId = e.pointerId;
+        dragIsTouch = e.pointerType === 'touch';
         renderBoard(localRoomState);
-        dragGhostEl = createDragGhost(PIECE_GLYPH[piece], piece[0], e.clientX, e.clientY);
+        dragGhostEl = createDragGhost(PIECE_GLYPH[piece], piece[0], e.clientX, e.clientY, dragIsTouch);
         div.classList.add('piece-dragging');
         try { div.setPointerCapture(e.pointerId); } catch (err) { /* not critical */ }
     } else {
@@ -1438,19 +1464,21 @@ function onSquarePointerDown(e) {
 }
 
 function onBoardPointerMove(e) {
-    if (!dragGhostEl) return;
+    if (!dragGhostEl || e.pointerId !== dragPointerId) return;
     dragGhostEl.style.left = e.clientX + 'px';
-    dragGhostEl.style.top = e.clientY + 'px';
+    dragGhostEl.style.top = (dragIsTouch ? e.clientY - TOUCH_DRAG_LIFT_PX : e.clientY) + 'px';
 }
 
 function onBoardPointerUp(e) {
-    if (dragFromSq === null) return;
+    if (dragFromSq === null || e.pointerId !== dragPointerId) return;
     const fromSq = dragFromSq;
     const targetSqEl = squareElFromPoint(e.clientX, e.clientY);
 
     if (dragGhostEl) { dragGhostEl.remove(); dragGhostEl = null; }
     document.querySelectorAll('#chess-board .sq.piece-dragging').forEach(el => el.classList.remove('piece-dragging'));
     dragFromSq = null;
+    dragPointerId = null;
+    dragIsTouch = false;
 
     if (targetSqEl && localRoomState && localRoomState.chess) {
         const visRow = parseInt(targetSqEl.dataset.visRow, 10), visCol = parseInt(targetSqEl.dataset.visCol, 10);
